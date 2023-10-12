@@ -1,0 +1,998 @@
+function [mean_all_int_value_breast,ones_high_noise_chestw,size_signal_chestw,safe_row_chestw,safe_col_chestw,current_scf_length_chestwall,current_scf_chestwall,current_chestwall,current_length_chestwall,current_breast,current_length_breast,profile_breast_or_chest_first] = SEG_v4(ones_high_noise_chestw,data,min_range_chest1,max_range_chest1,value_pcut,ref_val_1,scf_data,chestwall_ind,loop_data,size_signal_chestw,safe_row_chestw,safe_col_chestw,imrt)
+
+
+%% chestwall segmentation: primary segmentation %%
+
+profile_breast_or_chest_first=NaN;
+
+empty_scf_data=isempty(scf_data);
+if empty_scf_data == 1
+    
+    current_scf_length_chestwall=[];
+    current_scf_chestwall=[];
+    
+    data3=double(data);
+    %% getting frame borders of signal. 1.option not used. 2. option used in "Analysis_SEG" to find reference image for breast and scf
+    
+    %% 1. option to analyse which frame has an open field
+    
+    size_signal_chestw(loop_data,:)=length(data3(data3>0));
+    col_data3=[];
+    row_data3=[];
+    
+    %% 2. option col
+    [~,length_data3]=size(data3); 
+    for iii=1:length_data3
+        value_data3=sum(data3(:,iii));
+        %nan_value_data3=isnan(value_data3);  
+        if value_data3>0
+            if iii==1
+                col_data3(:,iii)=1;
+            else
+                col_data3(:,iii)=1;
+            end
+            break
+        end
+    end
+    
+    for iii=length_data3:-1:1
+        value_data3=sum(data3(:,iii));
+        %nan_value_data3=isnan(value_data3);
+        if value_data3>0
+            col_data3(:,iii)=2;
+            break
+        end
+    end
+    
+    [length_data3,~]=size(data3); % 2. option row
+    for iii=1:length_data3
+        value_data3=sum(data3(iii,:));
+        %nan_value_data3=isnan(value_data3);
+        if value_data3>0
+            if iii==1
+                row_data3(iii,:)=1;
+            else
+                row_data3(iii,:)=1;
+            end
+            break
+        end
+    end
+    
+    for iii=length_data3:-1:1
+        value_data3=sum(data3(iii,:));
+        %nan_value_data3=isnan(value_data3);
+        if value_data3>0
+            row_data3(iii,:)=2;
+            break
+        end
+    end
+    
+    length_row_data=length(row_data3);
+    if length_row_data<768
+        row_data3(end+1:768,:)=0;
+    end
+    length_col_data=length(col_data3);
+    if length_col_data<1024
+        col_data3(:,end+1:1024)=0;
+    end
+    safe_row_chestw(:,loop_data)=row_data3;
+    safe_col_chestw(:,loop_data)=col_data3';
+    
+   %[ind1_col_breast,~]=find(safe_col_chestw==1); % image: left and right 
+   %[ind2_col_breast,~]=find(safe_col_chestw==2); % image: left and right
+   
+   [ind1_row_breast,~]=find(safe_row_chestw==1); % image: up and down  
+   [ind2_row_breast,~]=find(safe_row_chestw==2); % image: up and down 
+   
+   
+   
+   %% intensity range from reference image defined in "image_processing_workflow" is used to create a margin that fits for the rest of the images
+   % intensity is separated in imrt and all others
+    if imrt==1
+    max_range_chest=max_range_chest1+(max_range_chest1*0.15);% IMRT plus +/- 0.0% margin
+    min_range_chest=min_range_chest1-(min_range_chest1*0.15);
+    else
+    max_range_chest=max_range_chest1+(max_range_chest1*0.005);% EDW and conformal org value 0.003, but try 0.005  %plus +/- 0.5% margin
+    min_range_chest=min_range_chest1-(min_range_chest1*0.005);    
+    end
+    
+    %% prepare to start segmentation loop %%
+    background=16000;
+    % chestwall_max_pos=[];
+    [row,~]=size(data3);
+    
+    start=200;%200
+    inc=1;
+    inc_end=600;%600
+    loop_counter=0;
+    chestwall_max_pos=[];
+    high_noise=0;
+    loop_count=0;
+    %% start  of chestwall segmentation
+    for i=start:inc:inc_end
+        loop_counter=loop_counter+1;
+        profile=data3(i,:);        
+        %profile(profile==0)=[];
+        zero_profile=sum(profile);
+        if zero_profile == 0
+            chestwall_max_pos(loop_counter,:)=-10;
+        else
+            [Max_peak,peak_ind,~,~] = extrema(profile);
+            length_Max_peak=length(Max_peak);
+            if length_Max_peak>1 % here get 2nd peak if its the chestwall one
+                %check if max peak is closer to field edge than second one
+                %closer means it needs to be within 10 ish. chekc out
+                %profile from left to right to determine ind to edge. then
+                %make the decision. if 1st max is outide of 10 then all
+                %good, else investigate second one.
+                no_zero=profile;
+                no_zero(no_zero==0)=[];
+                max_edge_ind=min(find(no_zero==Max_peak(1,1)));
+                no_zero_minten=(length(no_zero))-10;
+                if max_edge_ind > 10 && max_edge_ind<no_zero_minten
+                Max_peak=Max_peak(1,1);
+                max_pos_prev=peak_ind(1,1);
+                else
+                %max_sec_edge_ind=find(no_zero==Max_peak(1,2));
+                Max_peak=Max_peak(1,2);
+                max_pos_prev=peak_ind(1,2);
+                end
+            else
+               empty_Max_peak=isempty(Max_peak);
+               if  empty_Max_peak == 0
+               Max_peak=Max_peak(1,1);
+               max_pos_prev=peak_ind(1,1);
+               else
+               Max_peak=[];
+               max_pos_prev=[];
+               end
+            end
+            max_value=Max_peak;
+            if max_value >= min_range_chest
+                if max_value <= max_range_chest
+                    %max_field1(loop_counter,:)=max_value;
+                    max_pos=max_pos_prev;
+                    max_pos_mean=round(mean(max_pos));
+                    chestwall_max_pos(loop_counter,:)=max_pos_mean;
+                    
+                    % check if max_pos_mean is suitable as chestwall peak
+                    check_chest_max_pos=chestwall_max_pos;
+                    check_chest_max_pos(check_chest_max_pos==-10)=[];
+                    check_chest_max_pos(check_chest_max_pos==0)=[];
+                    empty_check_chest_max_pos=isempty(check_chest_max_pos);
+                    if empty_check_chest_max_pos==0                           
+                        length_dat=length(check_chest_max_pos);
+                            if length_dat>1
+                                val=check_chest_max_pos(end);
+                                val_prev=check_chest_max_pos(end-1);    
+                                diff_val=abs(val_prev-val);
+                                loop_count=loop_count+1;
+                                save_diff_val(:,loop_count)=diff_val;
+                                if diff_val>9 % a false chestwall peak has been found                                          
+                                        no_zero=profile;
+                                        no_zero(no_zero==0)=[];
+                                        [~,peak_ind2,~,~] = extrema(no_zero);
+                                        sequence=peak_ind2(2:end);
+                                        no_zero_minten=(length(no_zero))-20;
+                                        count_loop=0;
+                                        for iii=sequence
+                                            count_loop=count_loop+1;
+                                            if iii > 20 && iii<no_zero_minten
+                                                final_peak=peak_ind(1,1+count_loop);
+                                                chestwall_max_pos(loop_counter,:)=final_peak;
+                                                % check if max_pos_mean is suitable as scf peak
+                                                check_chest_max_pos=chestwall_max_pos;
+                                                check_chest_max_pos(check_chest_max_pos==-10)=[];
+                                                check_chest_max_pos(check_chest_max_pos==-0)=[];
+                                                empty_check_chest_max_pos=isempty(check_chest_max_pos);
+                                                if empty_check_chest_max_pos==0
+                                                    length_dat2=length(check_chest_max_pos);
+                                                         if  length_dat2>1
+                                                             val=check_chest_max_pos(end);
+                                                             val_prev=check_chest_max_pos(end-1);    
+                                                             diff_val=abs(val_prev-val);
+                                                         end
+                                                     if diff_val<9
+                                                        chestwall_max_pos(loop_counter,:)=final_peak; 
+                                                        break
+                                                     end
+                                                end
+                                            end
+                                         end
+
+                                end
+                            end
+                   end
+
+                elseif value_pcut == ref_val_1 % noisy images have a higher max range compare to the ref image (includig all standard images). therefore min and max range will be diabled in the loop
+                    %max_field1(loop_counter,:)=max_value;
+                    max_pos=find(max_value==profile);
+                    max_pos_mean=round(mean(max_pos));
+                    chestwall_max_pos(loop_counter,:)=max_pos_mean;
+                    if ref_val_1>=16280
+                        high_noise=1;
+                    end
+                end
+            %end
+            
+            % if chestwall_max_pos is empty, then it can be the result of variable 'value_pcut' has been changed!!
+            elseif value_pcut == ref_val_1 % noisy images have a higher max range compare to the ref image (includig all standard images). therefore min and max range will be diabled in the loop
+                %max_field1(loop_counter,:)=max_value;
+                max_pos=find(max_value==profile);
+                max_pos_mean=round(mean(max_pos));
+                chestwall_max_pos(loop_counter,:)=max_pos_mean;
+                if ref_val_1>=16280
+                    high_noise=1;
+                end
+            end
+            
+            
+        end
+        
+    end
+    
+    %% segmentation is done. all saved in chestwall_max_pos. clean up data
+    ones_high_noise_chestw(loop_data,:)=high_noise;
+    
+    data3(data3 == 0) = background;
+    %figure;imshow(data3,[]);
+    chestwall_max_empty=isempty(chestwall_max_pos);
+    [row_chest_max,~]=size(chestwall_max_pos);
+    if chestwall_max_empty == 0
+        
+        end_length=row_chest_max+start-1;
+        length_row_chest=start:inc:end_length;
+    else
+        length_row_chest=[];
+    end
+    
+    if row_chest_max < row
+        zero_200=zeros(200,1);
+        zero_chestwall=[zero_200;chestwall_max_pos];
+        zero_chestwall(end:row,:)=0;
+        %chestwall_max_pos(end:row,:)=0;
+        chestwall_max_pos=zero_chestwall;
+        length_row_chest=1:row;
+    end
+    
+    chestwall_max_pos(chestwall_max_pos==0)=NaN;
+    chestwall_max_pos(chestwall_max_pos==-10)=NaN;
+        
+    %% to correct chestwall segmentation from outliers %%
+    
+    %[row,~]=size(chestwall_max_pos);
+%     stepsize=10; % looking for a range of 10 values, if std is above 10, then outliner is within the range and needs to be interpolated
+%     std_max=10;
+%     range_data=30;
+%     
+%     for i=start:stepsize:inc_end
+%         validIndices = ~isnan(chestwall_max_pos(i,1));
+%         if validIndices == 1
+%             min_range_rows=i-stepsize-range_data;
+%             max_range_rows=i;
+%             validIndices2 = sum(~isnan(chestwall_max_pos([ min_range_rows:max_range_rows],1)));
+%             if validIndices2 >= stepsize
+%                 local_breastrange=chestwall_max_pos([ min_range_rows:max_range_rows],1);
+%                 std_breast=std(local_breastrange);
+%                 if std_breast >= std_max
+%                     [counts,centers]=hist(chestwall_max_pos([ min_range_rows:max_range_rows],1));
+%                     sum_start=sum(counts(1,1:3));
+%                     sum_end=sum(counts(1,end-3:end));
+%                     if sum_start>sum_end % sum_start which is bigger than sum_end belongs to chestwall contour && number which is smaller than data cloud belongs to the outliner
+%                         [Max_peak,~,~,~] = extrema(counts);
+%                         max_value=max(Max_peak);% max indicates breast data
+%                         max_pos=min(find(max_value==counts));
+%                         length_Max_peak=length(Max_peak);
+%                         for iii=1:length_Max_peak-1% max is always at position 1 for Max_peak, therefore just need Max_peak pos 2,3,...
+%                             min_value=Max_peak(1,iii+1);
+%                             %min_value=max(Max_peak(Max_peak~=max(Max_peak)));% min indicates outliner data-% find 2nd maximum
+%                             min_pos=max(find(min_value==counts));
+%                             colpos_maxcenters=centers(1,max_pos);
+%                             colpos_mincenters=centers(1,min_pos);
+%                             abs_colpos=abs(colpos_maxcenters-colpos_mincenters);
+%                             range_min_max=round(abs_colpos/2);
+%                             colpos_minround=round(colpos_mincenters);
+%                             maxcol_value_outliner=colpos_minround+range_min_max;
+%                             mincol_value_outliner=colpos_minround-range_min_max;
+%                             pos_outliner=find(mincol_value_outliner<local_breastrange & maxcol_value_outliner>local_breastrange); % find position of outliners
+%                             colpos_maxround=round(colpos_maxcenters);% correct outliners by using an interpolated value
+%                             maxcol_value_breast=colpos_maxround+range_min_max;
+%                             mincol_value_breast=colpos_maxround-range_min_max;
+%                             pos_breast=find(mincol_value_breast<local_breastrange & maxcol_value_breast>local_breastrange);
+%                             mean_values_breast=round(mean(local_breastrange(pos_breast,1)));
+%                             length_pos_outliner=length(pos_outliner);
+%                             length_mean_values_breast=repmat(mean_values_breast,length_pos_outliner,1);
+%                             chestwall_max_pos((pos_outliner+min_range_rows-1),1)=length_mean_values_breast;%replaced outliners with interpolated values
+%                         end
+%                     else
+%                         [Max_peak,~,~,~] = extrema(counts);
+%                         length_Max_peak=length(Max_peak);
+%                         max_value=max(Max_peak);
+%                         max_pos=max(find(max_value==counts));
+%                         for iii=1:length_Max_peak-1% max is always at position 1 for Max_peak, therefore just need Max_peak pos 2,3,...
+%                             min_value=Max_peak(1,iii+1);
+%                             %min_value=max(Max_peak(Max_peak~=max(Max_peak)));% find 2nd maximum
+%                             min_pos=min(find(min_value==counts));
+%                             colpos_maxcenters=centers(1,max_pos);
+%                             colpos_mincenters=centers(1,min_pos);
+%                             abs_colpos=abs(colpos_maxcenters-colpos_mincenters);
+%                             range_min_max=round(abs_colpos/2);
+%                             colpos_minround=round(colpos_mincenters);
+%                             maxcol_value_outliner=colpos_minround+range_min_max;
+%                             mincol_value_outliner=colpos_minround-range_min_max;
+%                             pos_outliner=find(mincol_value_outliner<local_breastrange & maxcol_value_outliner>local_breastrange); % find position of outliners
+%                             colpos_maxround=round(colpos_maxcenters);% correct outliners by using an interpolated value
+%                             maxcol_value_breast=colpos_maxround+range_min_max;
+%                             mincol_value_breast=colpos_maxround-range_min_max;
+%                             pos_breast=find(mincol_value_breast<local_breastrange & maxcol_value_breast>local_breastrange);
+%                             mean_values_breast=round(mean(local_breastrange(pos_breast,1)));
+%                             length_pos_outliner=length(pos_outliner);
+%                             length_mean_values_breast=repmat(mean_values_breast,length_pos_outliner,1);
+%                             chestwall_max_pos((pos_outliner+min_range_rows-1),1)=length_mean_values_breast;%replaced outliners with interpolated values
+%                         end
+%                     end
+%                 end
+%                 % eventually while loop until std_breast is good, before test if
+%                 % conditions
+%             end
+%         end
+%     end
+    
+    % delete outliers or big jumbs- particulare value get NaN'ed
+    save_diff_val=[];
+    cut_ind=[];
+    loop_count=0;
+    length_dat=length(chestwall_max_pos);
+    for ii=1:length_dat
+        if ii>1
+            val=chestwall_max_pos(ii);
+            val_prev=chestwall_max_pos(ii-1);    
+            diff_val=abs(val_prev-val);
+            nan_diff_val=diff_val;
+            nan_diff_val(isnan(nan_diff_val))=0;
+            loop_count=loop_count+1;
+            save_diff_val(:,loop_count)=nan_diff_val;
+            if diff_val > 9 %%%%% needs to be tested 
+                cut_ind(:,loop_count)=1;
+            end
+        end
+    end
+    
+    empty_cut_ind=isempty(cut_ind);
+    if empty_cut_ind==0
+        range_cut=find(cut_ind==1);
+        if range_cut==1
+        else
+            max_cut=max(range_cut);
+            min_cut=min(range_cut);
+            diff_cut=abs(max_cut-min_cut);
+            no_nan_chest_max_pos=chestwall_max_pos;
+            no_nan_chest_max_pos(isnan(no_nan_chest_max_pos))=[];
+            length_no_nan_chest_max_pos=length(no_nan_chest_max_pos);
+            length_diff_no_nan=length_no_nan_chest_max_pos-diff_cut;
+            perc_diff=length_diff_no_nan/length_no_nan_chest_max_pos;
+            if length_diff_no_nan > 0 && perc_diff > 0.5 %apply cut
+                cut_vec=chestwall_max_pos;
+                cut_vec(min_cut:end)=NaN; % cut the end of seg, if start cut is at the beginning of seg then it'll use min-max-range
+                cut_vec(isnan(cut_vec))=[];
+                length_cut_vec=length(cut_vec);
+                perc_diff=length_cut_vec/length_no_nan_chest_max_pos;
+                if perc_diff > 0.5 %apply cut
+                    chestwall_max_pos(min_cut:end)=NaN;% cut the end of seg, if start cut is at the beginning of seg then it'll use min-max-range
+                else
+                    chestwall_max_pos(min_cut:max_cut)=NaN; 
+                end
+            end
+        end 
+    end
+    
+    
+    
+    
+    current_chestwall=chestwall_max_pos;
+    current_length_chestwall=length_row_chest';
+    %% chestwall segmentation is done
+    %% breast tissue segmentation: secondary segmentation %%
+    %% prepare data for loop %%
+    
+    
+    %figure;plot(data3(120,:));
+    %figure;plot(data3(410,:));
+    %figure;plot(data3(600,:));
+    std_constraint=4;% std <4, shape is close to ref and chestwall can be segmented,> 4 chestwall segmentation is false
+    
+    data4=data3;
+    [row,~]=size(data4);
+    data4(data4 == background)= NaN;
+    colpos_breast=zeros(row,1);
+    % prev_nonnan_value=0;
+    %breast_intensity_max=14000;
+    %min_range=13050;
+    %max_range=14050;
+    vec_breast=[];
+    %breast_intensity_max=breast_max;
+    % min_range=breast_min_range;
+    % max_range=breast_max_range;
+    start=210;
+    save_indplateauMax_peak=0;
+    counter=0;
+    %% start of breast tissue segmentation
+    for i=start:inc:inc_end
+        
+        validIndices = sum(~isnan(data4(i,:)));
+        valueBS=0;
+        
+        if validIndices > 1
+            %new
+            
+            
+            chestw_peak=chestwall_max_pos(i,:);
+            empty_chestw_peak = isempty(chestw_peak);
+            if empty_chestw_peak == 0
+                [Max_peak,indMax_peak,~,~] = extrema(data4(i,:));
+                empty_indMax_peak = isempty(indMax_peak);
+                if empty_indMax_peak== 1
+                    valueBS=0;
+                else
+                    
+                    chestw_ind=indMax_peak(1,1);% Max_peak (1,1) always highest maximum and indicates chestwall location
+                    dif = abs(indMax_peak-chestw_ind); % find chestw_peak at indMax_peak vector
+                    max_dif=max(dif);
+                    loc_breast_tissue=max(find(max_dif==dif));
+                    indplateauMax_peak=indMax_peak(1,loc_breast_tissue);
+                    indminMax_peak=find(indplateauMax_peak == indMax_peak);
+                    value_indMax_peak=Max_peak(1,indminMax_peak);
+                    indBS=find(value_indMax_peak< data4(i,:));
+                    maxindBS=max(indBS);
+                    minindBS=min(indBS);
+                    value_empty_indBS = isempty(indBS);
+                    value_empty_maxindBS = isempty(maxindBS);
+                    value_empty_minindBS = isempty(minindBS);
+                    if value_empty_indBS == 0 || value_empty_maxindBS == 0 || value_empty_minindBS == 0
+                        
+                        if indplateauMax_peak < minindBS && indplateauMax_peak < maxindBS % profile can be left- or right-sided
+                            
+                            valueBS=min(indBS); % left-sided: first breast tissue then bone
+                            profile_breast_or_chest_first=1; % 1: first breast tissue then bone & 0: first bone then breast tissue
+                            
+                        else
+                            valueBS=max(indBS); % right-sided: first bone then breast tissue
+                            profile_breast_or_chest_first=0; % 1: first breast tissue then bone & 0: first bone then breast tissue
+
+                        end
+                        
+                    else
+                        
+                        valueBS=0;
+                        
+                    end
+                end
+                
+            else
+                [Max_peak,indMax_peak,~,~] = extrema(data4(i,:));
+                dif = abs(indMax_peak-chestw_peak); % find chestw_peak at indMax_peak vector
+                xs = sort(dif);
+                min_xs=min(xs);
+                value_empty_min_xs = isempty(min_xs);
+                if value_empty_min_xs == 0
+                    valueBS=0;
+                else
+                    ind_min_xs=min(find(min_xs == dif)); % ind of chestwall
+                    peak_indchestwall=indMax_peak(1,ind_min_xs);
+                    %ind_max_indMax_peak=find(indMax_peak==peak_indchestwall); % ind of profile
+                    vec_nonnan=find(~isnan(data4(i,:)));% find profile to be left-sided or right-sided
+                    min_nonnan=min(vec_nonnan);
+                    max_nonnan=max(vec_nonnan);
+                    result_min_nonnan=abs(peak_indchestwall-min_nonnan);
+                    result_max_nonnan=abs(peak_indchestwall-max_nonnan);
+                    if result_min_nonnan<result_max_nonnan % profile is right-sided: bone and then breast tissue
+                        indplateauMax_peak=max(indMax_peak);
+                        profile_breast_or_chest_first=0;
+                    else % profile is left-sided
+                        indplateauMax_peak=min(indMax_peak);
+                        profile_breast_or_chest_first=1;
+                    end
+                    
+                    
+                    indminMax_peak=find(indplateauMax_peak == indMax_peak);
+                    value_indMax_peak=Max_peak(1,indminMax_peak);
+                    indBS=find(value_indMax_peak< data4(i,:));
+                    maxindBS=max(indBS);
+                    minindBS=min(indBS);
+                    value_empty_indBS = isempty(indBS);
+                    value_empty_maxindBS = isempty(maxindBS);
+                    value_empty_minindBS = isempty(minindBS);
+                    if value_empty_indBS == 0 || value_empty_maxindBS == 0 || value_empty_minindBS == 0
+                        
+                        if indplateauMax_peak < minindBS && indplateauMax_peak < maxindBS % profile can be left- or right-sided
+                            
+                            valueBS=min(indBS);
+                            profile_breast_or_chest_first=0; % 1: first breast tissue then bone & 0: first bone then breast tissue
+     
+                        else
+                            valueBS=max(indBS);
+                            profile_breast_or_chest_first=0; % 1: first breast tissue then bone & 0: first bone then breast tissue
+                       
+                        end
+                        
+                    else
+                        
+                        valueBS=0;
+                        
+                    end
+                    
+                end
+                
+            end
+            empty_valueBS=isempty(valueBS);
+            if empty_valueBS == 1
+                valueBS=0;
+            end
+            counter=counter+1;
+            colpos_breast(i,:)=valueBS;
+            vec_breast(counter,:)=valueBS;
+            if  counter > 20 % idea of using previous breast tissue peaks to compare it against current one to find outlier. at least 5 values should be calculated
+                std_colpos_breast=std(vec_breast(end-20:end,1));
+                if std_colpos_breast>std_constraint % std <4, shape is close to ref and chestwall can be segmented,> 4 chestwall segmentation is false
+                    colpos_breast(i,:)=0;
+                    
+                end
+            end
+        end
+
+    end
+    %% breast tissue segmentation is complete. saved in colpos_breast. clean up data
+    [row_colpos_breast,~]=size(colpos_breast);
+    
+    if row_colpos_breast < row
+        colpos_breast(end:row,:)=0;
+    end
+    colpos_breast(colpos_breast==0)=NaN;
+    [row,~]=size(colpos_breast);
+    length_row_breast=1:row;
+
+    current_breast=colpos_breast; % for testing
+    current_length_breast=length_row_breast';% for testing
+    %get sum of breast int values
+    
+    all_int_value=[];
+    length_current_breast=length(current_breast);
+    for iii=1:length_current_breast
+    pos_breast_seg=current_breast(iii);
+    nan_pos_breast_seg=isnan(pos_breast_seg);
+        if nan_pos_breast_seg==1
+            int_value=NaN;
+        else
+            int_value=data4(iii,pos_breast_seg);
+        end
+    all_int_value(iii,:)=int_value;
+    end
+    all_int_value(isnan(all_int_value))=[];
+    sum_all_int_value=sum(all_int_value); 
+    mean_all_int_value_breast=mean(all_int_value); 
+    %current_breast=colpos_breast; % for testing
+    %current_length_breast=length_row_breast';% for testing
+    %line(chestwall_max_pos,length_row_chest)% for testing
+    
+    %% breast tissue segmentation is complete
+else
+    %% SCF- superaclavicular field segmentation %%
+    current_chestwall=[];
+    current_length_chestwall=[];
+    current_breast=[];
+    current_length_breast=[];
+    mean_all_int_value_breast=[];
+    
+    data3=imrotate(scf_data,90);
+    %% getting frame borders of signal. 1.option not used. 2. option used in "Analysis_SEG" to find reference image for breast and scf
+    
+    %% 1. option to analyse which frame has an open field
+    
+    size_signal_chestw(loop_data,:)=length(data3(data3>0));
+    col_data3=[];
+    row_data3=[];
+    
+    
+    %% 2. option col
+    [~,length_data3]=size(data3); 
+    for iii=1:length_data3
+        value_data3=sum(data3(:,iii));
+        %nan_value_data3=isnan(value_data3);  
+        if value_data3>0
+            if iii==1
+                col_data3(:,iii)=1;
+            else
+                col_data3(:,iii)=1;
+            end
+            break
+        end
+    end
+    
+    for iii=length_data3:-1:1
+        value_data3=sum(data3(:,iii));
+        %nan_value_data3=isnan(value_data3);
+        if value_data3>0
+            col_data3(:,iii)=2;
+            break
+        end
+    end
+    
+    [length_data3,~]=size(data3); % 2. option row
+    for iii=1:length_data3
+        value_data3=sum(data3(iii,:));
+        %nan_value_data3=isnan(value_data3);
+        if value_data3>0
+            if iii==1
+                row_data3(iii,:)=1;
+            else
+                row_data3(iii,:)=1;
+            end
+            break
+        end
+    end
+    
+    for iii=length_data3:-1:1
+        value_data3=sum(data3(iii,:));
+        %nan_value_data3=isnan(value_data3);
+        if value_data3>0
+            row_data3(iii,:)=2;
+            break
+        end
+    end
+    
+    length_row_data=length(row_data3);
+    if length_row_data<1024
+        row_data3(end+1:1024,:)=0;
+    end
+    length_col_data=length(col_data3);
+    if length_col_data<768
+        col_data3(:,end+1:768)=0;
+    end
+    safe_row_chestw(:,loop_data)=row_data3';%image: up and down  
+    safe_col_chestw(:,loop_data)=col_data3;
+
+    %% scf segmentation %%
+    %% prepare for loop 
+    
+    background=16000;
+    % chestwall_max_pos=[];
+    [row,~]=size(data3);
+    
+    start=1;%220
+    inc=1;
+    inc_end=row;%600
+    loop_counter=0;
+    chestwall_max_pos=[];
+%     min_num=2;
+%     min_num2=5;
+%     std_max=10;
+%     length_max=0.5;
+%     loop_test=0;
+%     keep_5seq=[];
+%     break_loop=0;
+%     max_break=[]; % if 10 NaNs in seq appear at the tail of segmentation then break up for loop segmentation is done.
+
+    %% scf segmentation starts here %% 
+    for i=start:inc:inc_end% 760
+        loop_counter=loop_counter+1;
+        profile=data3(i,:);
+        %profile(profile==0)=[];
+        zero_profile=sum(profile);
+        if zero_profile == 0
+            chestwall_max_pos(loop_counter,:)=-10;
+        else
+            Max_peak=[];peak_ind=[];
+            [Max_peak,peak_ind,~,~] = extrema(profile);
+            max_value=max(Max_peak);
+            [~,peak_ind_conv,~,~] = extrema(-profile);
+            empty_conv=isempty(peak_ind_conv);
+            length_peak_ind_conv=length(peak_ind_conv);
+            if empty_conv ==1 || length_peak_ind_conv < 3
+                chestwall_max_pos(loop_counter,:)=-10;
+            else
+                length_peak=length(peak_ind);
+                if length_peak<2
+                    chestwall_max_pos(loop_counter,:)=-10;
+                else
+                    no_zero=profile;
+                    no_zero(no_zero==0)=[];
+                    max_edge_ind=min(find(no_zero==Max_peak(1,1)));
+                    no_zero_minten=(length(no_zero))-20;
+                    if max_edge_ind > 20 && max_edge_ind<no_zero_minten % need to try if 10 is enough!!
+                        Max_peak=Max_peak(1,1);
+                        chestwall_max_pos(loop_counter,:)=peak_ind(1,1);
+
+                        % check if max_pos_mean is suitable as scf peak
+                        check_chest_max_pos=chestwall_max_pos;
+                        check_chest_max_pos(check_chest_max_pos==-10)=[];
+                        empty_check_chest_max_pos=isempty(check_chest_max_pos);
+                        if empty_check_chest_max_pos==0                           
+                            length_dat=length(check_chest_max_pos);
+                                if length_dat>1
+                                    val=check_chest_max_pos(end);
+                                    val_prev=check_chest_max_pos(end-1);    
+                                    diff_val=abs(val_prev-val);
+                                    if diff_val>20 % a false scf peak has been found                                          
+                                            no_zero=profile;
+                                            no_zero(no_zero==0)=[];
+                                            [~,peak_ind2,~,~] = extrema(no_zero);
+                                            sequence=peak_ind2(2:end);
+                                            no_zero_minten=(length(no_zero))-20;
+                                            count_loop=0;
+                                            for iii=sequence
+                                                count_loop=count_loop+1;
+                                                if iii > 20 && iii<no_zero_minten
+                                                    final_peak=peak_ind(1,1+count_loop);
+                                                    chestwall_max_pos(loop_counter,:)=final_peak;
+                                                    % check if max_pos_mean is suitable as scf peak
+                                                    check_chest_max_pos=chestwall_max_pos;
+                                                    check_chest_max_pos(check_chest_max_pos==-10)=[];
+                                                    empty_check_chest_max_pos=isempty(check_chest_max_pos);
+                                                    if empty_check_chest_max_pos==0
+                                                        length_dat2=length(check_chest_max_pos);
+                                                             if  length_dat2>1
+                                                                 val=check_chest_max_pos(end);
+                                                                 val_prev=check_chest_max_pos(end-1);    
+                                                                 diff_val=abs(val_prev-val);
+                                                             end
+                                                         if diff_val<20
+                                                            chestwall_max_pos(loop_counter,:)=final_peak; 
+                                                            break
+                                                         end
+                                                    end
+                                                end
+                                             end
+                                        
+                                    end
+                                end
+                        end
+ 
+                    else
+                        chestwall_max_pos(loop_counter,:)=-10;
+                    end
+
+                end
+            end
+            % if chestwall_max_pos is empty, then it can be the result of variable 'value_pcut' has been changed!!
+            if value_pcut == ref_val_1 % noisy images have a higher max range compare to the ref image (includig all standard images). therefore min and max range will be diabled in the loop
+                %max_field1(loop_counter,:)=max_value;
+                max_pos=find(max_value==profile);
+                max_pos_mean=round(mean(max_pos));
+                chestwall_max_pos(loop_counter,:)=max_pos_mean;
+            end          
+            
+        end
+        
+    end
+    
+    
+    %% segmentation is done - saved in chestwall_max_pos. clean up data
+    data3(data3 == 0) = background;
+    %figure;imshow(data3,[]);
+    chestwall_max_empty=isempty(chestwall_max_pos); 
+    length_chestwall_max_pos=length(chestwall_max_pos);
+    if chestwall_max_empty == 0
+        if length_chestwall_max_pos<1024
+            zero_100=zeros(start,1);
+            zero_chestwall=[zero_100;chestwall_max_pos];
+            length_zero_chestwall=length(zero_chestwall);
+            residual_length=1024-length_zero_chestwall;
+            m10_add=repmat(-10,residual_length,1);
+            minus10_chestwall=[zero_chestwall;m10_add];
+            chestwall_max_pos=minus10_chestwall;  
+        end
+        [row_chest_max,~]=size(chestwall_max_pos);
+        length_row_chest=1:inc:row_chest_max;
+    else
+        length_row_chest=[];
+    end
+    
+    chestwall_max_pos(chestwall_max_pos==0)=NaN;
+    chestwall_max_pos(chestwall_max_pos==-10)=NaN;
+    %figure;plot(chestwall_max_pos);
+    
+    %% SCF: delete outliers or jumbs- particular values are NaN'ed
+    
+    %cut off big jumps or outliers
+    cut_ind=[];
+    loop_count=0;
+    length_dat=length(chestwall_max_pos);
+    outliers=25;
+    for ii=1:length_dat
+        if ii>1
+            val=chestwall_max_pos(ii);
+            val_prev=chestwall_max_pos(ii-1);    
+            diff_val=abs(val_prev-val);
+            %
+            loop_count=loop_count+1;
+            %save_diff_val(:,loop_count)=diff_val;
+            if diff_val > outliers
+                cut_ind(:,loop_count)=1;
+            end
+        end
+    end
+    
+    
+    empty_cut_ind=isempty(cut_ind);
+    if empty_cut_ind==0 % cut NaN and save ind of cut ind peaks
+        range_cut=find(cut_ind==1);
+        nan_ones=isnan(chestwall_max_pos);% nan is 1, nonan is 0
+        counter_ones=0;
+        for ii=range_cut
+        counter_ones=counter_ones+1;
+        ones=sum(nan_ones(1:ii-1));
+        res_ones=abs(ii-ones);
+        range_cut_nan(:,counter_ones)=res_ones;
+        end
+
+    end
+    
+    empty_cut_ind=isempty(cut_ind);
+    if empty_cut_ind==0
+        range_cut=find(cut_ind==1);
+        length_range_cut=length(range_cut);
+        if length_range_cut==1
+            max_cut_nonan=max(range_cut);
+            min_cut_nonan=min(range_cut);
+            max_cut=max(range_cut_nan);
+            min_cut=min(range_cut_nan);
+            diff_cut=abs(max_cut-min_cut);
+            no_nan_chest_max_pos=chestwall_max_pos;
+            no_nan_chest_max_pos(isnan(no_nan_chest_max_pos))=[];
+            length_no_nan_chest_max_pos=length(no_nan_chest_max_pos);
+            length_diff_no_nan=abs(length_no_nan_chest_max_pos-diff_cut);
+            perc_diff=length_diff_no_nan/length_no_nan_chest_max_pos;
+            if length_diff_no_nan > 0 && perc_diff >= 0.5 %apply cut
+                cut_vec=chestwall_max_pos;
+                cut_vec(min_cut_nonan:end)=NaN; % cut the end of seg, if start cut is at the beginning of seg then it'll use min-max-range
+                cut_vec(isnan(cut_vec))=[];
+                length_cut_vec=length(cut_vec);
+                length_diff_cut_vec=length_cut_vec;
+                perc_diff=length_diff_cut_vec/length_no_nan_chest_max_pos;
+                if perc_diff > 0.5 %apply cut
+                    chestwall_max_pos(min_cut_nonan:end)=NaN;% cut the end of seg, if start cut is at the beginning of seg then it'll use min-max-rang
+                end
+            end
+        else
+            sequence=[];
+            sequence=range_cut_nan;
+            sequence2=range_cut;
+            length_sequence=length(sequence);
+            even_number=bitand(length_sequence,1); % 0= even number / 1= uneven number to get sequence right/ hassena/fr12                                
+            count_loop=0;
+            sequence_end=sequence(end);
+            
+            for ii=1:length_sequence 
+                count_loop=count_loop+1;
+                if count_loop>1
+                    count_loop=0;
+                    max_cut=sequence(ii);
+                    max_cut2=sequence2(ii);
+                    min_cut=sequence(ii-1);
+                    min_cut2=sequence2(ii-1);
+                    diff_cut=abs(max_cut-min_cut);
+                    no_nan_chest_max_pos=chestwall_max_pos;
+                    no_nan_chest_max_pos(isnan(no_nan_chest_max_pos))=[];
+                    length_no_nan_chest_max_pos=length(no_nan_chest_max_pos);
+                    length_diff_no_nan=abs(length_no_nan_chest_max_pos-diff_cut);
+                    perc_diff=length_diff_no_nan/length_no_nan_chest_max_pos;
+                    if length_diff_no_nan > 0 && perc_diff >= 0.5 %apply cut
+                        cut_vec=chestwall_max_pos;
+                        cut_vec(min_cut2:end)=NaN; % cut the end of seg, if start cut is at the beginning of seg then it'll use min-max-range
+                        cut_vec(isnan(cut_vec))=[];
+                        length_cut_vec=length(cut_vec);
+                        length_diff_cut_vec=length_cut_vec;
+                        perc_diff=length_diff_cut_vec/length_no_nan_chest_max_pos;
+                        if perc_diff > 0.5 %apply cut
+                            chestwall_max_pos(min_cut2:end)=NaN;% cut the end of seg, if start cut is at the beginning of seg then it'll use min-max-range
+                        else
+                            chestwall_max_pos(min_cut2:max_cut2)=NaN; % still testing this.....
+                        end
+                    end
+                end
+                
+                if even_number==1 % if there is uneven_number, then last will be investigated seperately
+                    if sequence_end==sequence(ii)
+                            max_cut=sequence(ii);
+                            min_cut=sequence(ii); 
+                            min_cut2=sequence2(ii);
+                            diff_cut=abs(max_cut-min_cut);
+                            no_nan_chest_max_pos=chestwall_max_pos;
+                            no_nan_chest_max_pos(isnan(no_nan_chest_max_pos))=[];
+                            length_no_nan_chest_max_pos=length(no_nan_chest_max_pos);
+                            length_diff_no_nan=abs(length_no_nan_chest_max_pos-diff_cut);
+                            perc_diff=length_diff_no_nan/length_no_nan_chest_max_pos;
+                            if length_diff_no_nan > 0 && perc_diff >= 0.5 %apply cut
+                                cut_vec=chestwall_max_pos;
+                                cut_vec(min_cut2:end)=NaN; % cut the end of seg, if start cut is at the beginning of seg then it'll use min-max-range
+                                cut_vec(isnan(cut_vec))=[];
+                                length_cut_vec=length(cut_vec);
+                                length_diff_cut_vec=length_cut_vec;
+                                perc_diff=length_diff_cut_vec/length_no_nan_chest_max_pos;
+                                if perc_diff > 0.5 %apply cut
+                                    chestwall_max_pos(min_cut2:end)=NaN;% cut the end of seg, if start cut is at the beginning of seg then it'll use min-max-rang
+                                end
+                            end   
+                    end
+                end
+                
+            end
+        end 
+    end
+    
+    % cut off end peaces if necessary
+    end_bits=chestwall_max_pos; 
+    end_bits(isnan(end_bits))=0;
+    end_bits(end_bits>0)=1;
+    length_end_bits=length(end_bits);
+    counter_end_bits=0;
+    counter_save_bits=0;
+    save_value_end_bits=[];
+    save_range=[];
+    save_range_end_bits=[];
+    save_length_empty_save_value_end_bits=[];
+    for i=1:length_end_bits
+        value_end_bits=end_bits(i);
+        if value_end_bits==1
+            counter_end_bits=counter_end_bits+1;
+            save_range_end_bits(:,counter_end_bits)=i;
+            save_value_end_bits(:,counter_end_bits)=value_end_bits;  
+        else 
+            empty_save_value_end_bits=isempty(save_value_end_bits);
+            if empty_save_value_end_bits==0
+            counter_save_bits=counter_save_bits+1;
+            length_empty_save_value_end_bits=length(save_value_end_bits);
+            save_length_empty_save_value_end_bits(:,counter_save_bits)=length_empty_save_value_end_bits;
+            save_range_min(:,counter_save_bits)=min(save_range_end_bits);
+            save_range_max(:,counter_save_bits)=max(save_range_end_bits);
+            save_value_end_bits=[];
+            save_range_end_bits=[];
+            counter_end_bits=0;
+            end
+        end
+        
+        
+    end
+    
+        %save_length_empty_save_value_end_bits(save_length_empty_save_value_end_bits==0)=[];
+        %save_range(save_range==0)=[];
+    length_value_end_bits=length(save_length_empty_save_value_end_bits);
+    if length_value_end_bits>1 % cut off first and last data, which mostly is wrong segmentation, if more steps required than add another for loop
+        first_value=save_length_empty_save_value_end_bits(1);
+        if length_value_end_bits>2
+            range_first_data=abs(save_length_empty_save_value_end_bits-first_value);
+        else 
+            range_first_data=abs(save_length_empty_save_value_end_bits-first_value);
+        end
+        perc_diff_first=range_first_data/save_length_empty_save_value_end_bits;
+        
+        last_value=save_length_empty_save_value_end_bits(end);
+        if length_value_end_bits>2
+            range_last_data=abs(save_length_empty_save_value_end_bits-last_value);
+        else 
+            range_last_data=abs(save_length_empty_save_value_end_bits-last_value);
+        end
+        perc_diff_last=range_last_data/save_length_empty_save_value_end_bits;
+        
+        empty_min=isempty(save_range_min);
+        empty_max=isempty(save_range_max);  
+        
+        if empty_min==0 && empty_max==0 
+            if perc_diff_first > 0.5 %apply cut
+
+                chestwall_max_pos(save_range_min(1):save_range_max(1))=NaN;
+            end
+
+            if perc_diff_last > 0.5 %apply cut
+                chestwall_max_pos(save_range_min(end):save_range_max(end))=NaN;
+            end
+        end
+        
+    end
+    %% SCF: save data
+    
+    current_scf_chestwall=chestwall_max_pos; % for testing
+    current_scf_length_chestwall=length_row_chest';% for testing
+end
+
+
