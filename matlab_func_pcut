@@ -1,0 +1,411 @@
+function  [value_pcut,ref_val_1]= PCUT(data3,row,ind_sec_max_lower,ind_sec_max_upper,ind_first_max_lower,ind_first_max_upper)
+
+%% get profile of image; use at least ten point of profile and calc the m. highest or lowest m indicated noise to signal border. get location of it and calc min and max intensity within that range. thats how background noise can be cutted for each image. 
+
+% for noisy images best intensity cut off is 16300 and for standard images it is 16000 to asure high quality image enhancement
+data3400=data3(row,:);
+length_data3400=length(data3400);
+value_pcut=[];
+
+if ind_sec_max_lower < ind_first_max_lower % left and right
+left_lower=ind_sec_max_lower;
+left_upper=ind_sec_max_upper;
+right_lower=ind_first_max_lower;
+right_upper=ind_first_max_upper;
+else
+right_lower=ind_sec_max_lower;
+right_upper=ind_sec_max_upper;
+left_lower=ind_first_max_lower;
+left_upper=ind_first_max_upper;       
+end
+
+
+%[~,col]=size(data3_row);
+% count2_1=2;
+% count1_2=1;
+% cont_counter=0;
+% inc=5;
+% %pos_save=zeros(row,col);
+% for i=1:inc:col
+%     counter2_1=count2_1-1;
+%     if counter2_1==2
+%       profile2=[];  
+%     end
+%     count1_2=count1_2+1;
+%     profile2(:,count1_2)=data3_row(1,i); 
+%     if counter2_1==0
+%         counter2_1=2;
+%         counter1_2=1;
+%         m=(profile2(:,1)-profile2(:,2))/(i-(i-inc));%calc gradient of slope m= y2-y1/x2-x1 
+%         cont_counter=cont_counter+1;
+%         m_all_profile(:,cont_counter)=m;
+%     end
+%      
+% end
+
+%% find best suitable intensity treshold value to cut off background. ref1 stands for very noisy images and ref2 for standard images %% 
+
+ref1=[16280,16300,16320,16340,16360,16380]; % find location of values 16300. change it to 16320 -for loop:16300,16320,16340
+ref2=[15900,15800,15700,15600,15500]; % find location of values 16000 or 15800 -- for loop: 15900,15800,15700,15600
+
+%% ref1 %%
+loop=0;
+m_left_slope_ref2_result=NaN;
+m_right_slope_ref2_result=NaN;
+m_left_slope_ref1_result=NaN;
+m_right_slope_ref1_result=NaN;
+m_left_slope_ref2=[];
+m_right_slope_ref2=[];
+m_left_slope_ref1=[];
+m_right_slope_ref1=[];
+
+%% start loop to find calculate the gradient for noisy images  
+for i=ref1
+    
+    loop=loop+1;
+    dif = abs(data3(row,:)-i);
+
+    % get interpolation to make sure I get points from both ends of profile
+    poly_grad=15;% anything below is ok starting from 4.
+    chestwall_max_pos=data3(row,:);
+    [~,col_profile]=size(chestwall_max_pos);
+    for iii=1:col_profile
+     validIndices = ~isnan(chestwall_max_pos(1,iii));
+     if validIndices == 1
+         value_nonan=iii;
+         break
+     end
+
+    end
+    nonan_chestwall_max_pos=chestwall_max_pos;
+    nonan_chestwall_max_pos(isnan(nonan_chestwall_max_pos))=[];
+    [row2,~]=size(nonan_chestwall_max_pos');
+    x = linspace(1,row2,row2);
+    y = nonan_chestwall_max_pos;
+    p = polyfit(x,y,poly_grad);% Use polyfit to fit a 4th-degree polynomial to the points. 1. Value, y should not contain NAN
+    x1 = linspace(1,row2,row2);
+    y1 = polyval(p,x1');
+%              %figure
+%              figure;
+%              x3=x+value_nonan;
+%              x2=x1+value_nonan;
+%              plot(x3,y,'g')
+%              hold on        
+     y2=round(y1,0);
+%             plot(x2,y2','c')
+%              hold off
+
+    %
+    [~,peak_ind] = extrema(-y2);
+    empty_peak_ind=isempty(peak_ind);
+    if empty_peak_ind==0
+    peak_max_ind=peak_ind(1,1);
+    else
+    peak_max_ind=[];    
+    end
+    max_value=data3400(peak_max_ind);
+    min_left=min(dif(1,(left_lower:left_upper))); % get left-sided profile min value
+    min_right=min(dif(1,(right_lower:right_upper))); % get right-sided profile min value
+   %% location of the gradient. this was defined at ICE function
+    min_ind_ref=min(find(dif(1,(left_lower:left_upper))==min_left));
+    max_ind_ref=(length(dif(1,(1:right_lower-1))))+min(find(dif(1,(right_lower:right_upper))==min_right));
+   %% now compute the gradient %%
+
+
+    % n=6;% first 6 min values. hope to get one value of left and right slope of profile.
+    % xs = sort(dif);
+    % min_xs=min(xs);
+    if max_value<i
+    %     val=xs(1:n);
+    %     [~,col]=size(val);
+    %     for ii=1:col
+    %     ind_ref1=min(find(dif==val(ii)));% first two indexes closest to ref1/ min or max doesn't matter
+    %     save_ind_ref1(:,ii)=ind_ref1;% first two indexes closest to ref1
+    %     end
+    %     min_ind_ref=min(save_ind_ref1);% should be left slope of profile
+    %     max_ind_ref=max(save_ind_ref1);% should be right slope of profile
+    %     
+        if max_ind_ref >= length_data3400 % maybe min needs to be adjusted too
+            max_ind_ref=length_data3400-3;
+            if min_ind_ref <= 2
+            min_ind_ref=3;
+            end
+            if min_ind_ref >= 1021
+            min_ind_ref=1020;
+            end
+            m_left_slope_ref1(loop,:)=(data3(row,min_ind_ref-2)-data3(row,min_ind_ref+2))/((min_ind_ref-2)-(min_ind_ref+2));%calc gradient of slope m= y2-y1/x2-x1 
+            m_right_slope_ref1(loop,:)=(data3(row,max_ind_ref-2)-data3(row,max_ind_ref+2))/((max_ind_ref-2)-(max_ind_ref+2));%calc gradient of slope m= y2-y1/x2-x1 
+        else
+            if min_ind_ref <= 2
+            min_ind_ref=3;
+            end
+            if max_ind_ref <= 2
+            max_ind_ref=3;    
+            end
+            if min_ind_ref >= 1021
+            min_ind_ref=1020;
+            end
+            if max_ind_ref >= 1021
+            max_ind_ref=1020;
+            end
+            m_left_slope_ref1(loop,:)=(data3(row,min_ind_ref-2)-data3(row,min_ind_ref+2))/((min_ind_ref-2)-(min_ind_ref+2));%calc gradient of slope m= y2-y1/x2-x1 
+            m_right_slope_ref1(loop,:)=(data3(row,max_ind_ref-2)-data3(row,max_ind_ref+2))/((max_ind_ref-2)-(max_ind_ref+2));%calc gradient of slope m= y2-y1/x2-x1   
+        end
+        
+    end
+end
+
+%% clean up data 
+empty_m_left_slope_ref1=isempty(m_left_slope_ref1);
+empty_m_right_slope_ref1=isempty(m_right_slope_ref1);
+if empty_m_left_slope_ref1 == 1 || empty_m_right_slope_ref1 == 1
+    m_left_slope_ref2_result=-9999;
+    m_right_slope_ref2_result=9999;
+end        
+        
+if m_left_slope_ref2_result==-9999 && m_right_slope_ref2_result==9999
+else
+    ind_ref1_left=min(find(min(m_left_slope_ref1)==m_left_slope_ref1));
+    ind_ref1_right=max(find(max(m_right_slope_ref1)==m_right_slope_ref1));
+    
+    empty_ind_ref1_left = isempty(ind_ref1_left);
+    empty_ind_ref1_right = isempty(ind_ref1_right);
+    
+    if empty_ind_ref1_left == 0 && empty_ind_ref1_right == 0
+        ind_ref_value=max(find(ind_ref1_left==ind_ref1_right));
+        l_ind_ref1_left=length(ind_ref1_left);
+        l_ind_ref1_right=length(ind_ref1_right);
+        if l_ind_ref1_left> l_ind_ref1_right
+            ind_ref1=ind_ref1_left(ind_ref_value);
+        else
+            ind_ref1= ind_ref1_right(ind_ref_value);  
+        end
+    else
+        if empty_ind_ref1_left == 1
+          ind_ref1_left=NaN;      
+        end    
+        if empty_ind_ref1_right == 1
+            ind_ref1_right=NaN;   
+        end 
+        ind_ref_value=max(find(ind_ref1_left==ind_ref1_right));
+        l_ind_ref1_left=length(ind_ref1_left);
+        l_ind_ref1_right=length(ind_ref1_right);
+        if l_ind_ref1_left> l_ind_ref1_right
+            ind_ref1= ind_ref1_left(ind_ref_value);
+        else
+            ind_ref1= ind_ref1_right(ind_ref_value);  
+        end   
+    end
+    
+    empty_ind_ref1 = isempty(ind_ref1);
+    if empty_ind_ref1== 0     
+        m_left_slope_ref1_result=m_left_slope_ref1(ind_ref1);
+        m_right_slope_ref1_result=m_right_slope_ref1(ind_ref1);    
+    else
+       m_left_slope_ref1_value=m_left_slope_ref1(ind_ref1_left);
+       m_right_slope_ref1_value=m_right_slope_ref1(ind_ref1_right);
+       if abs(m_right_slope_ref1_value)>abs(m_left_slope_ref1_value)% noisy images preferably I want to find highest ref1 (closest to background).
+           if ind_ref1_right>ind_ref1_left
+            m_right_slope_ref1_result=m_right_slope_ref1_value;
+            m_left_slope_ref1_result=m_left_slope_ref1(ind_ref1_right);
+            ind_ref1=ind_ref1_right;
+           else
+            test_left_suitable_right_slope=m_right_slope_ref1(ind_ref1_left);
+            sort_slope_ref1=sort(m_right_slope_ref1); %find 2nd max
+            second_max_value=sort_slope_ref1(end-1);
+                if test_left_suitable_right_slope==second_max_value
+                   m_right_slope_ref1_result=m_right_slope_ref1(ind_ref1_left);
+                   m_left_slope_ref1_result=m_left_slope_ref1(ind_ref1_left);  
+                   ind_ref1=ind_ref1_left; 
+                else
+                   m_right_slope_ref1_result=m_right_slope_ref1(ind_ref1_right);
+                   m_left_slope_ref1_result=m_left_slope_ref1(ind_ref1_right);  
+                   ind_ref1=ind_ref1_right;
+                end 
+           end          
+       else
+           if ind_ref1_left>ind_ref1_right
+            m_left_slope_ref1_result=m_left_slope_ref1_value;
+            m_right_slope_ref1_result=m_right_slope_ref1(ind_ref1_left);
+            ind_ref1=ind_ref1_left;
+           else
+            test_left_suitable_left_slope=m_left_slope_ref1(ind_ref1_right);
+            sort_slope_ref1=sort(m_left_slope_ref1); %find 2nd max
+            second_max_value=sort_slope_ref1(2);
+                if test_left_suitable_left_slope==second_max_value
+                   m_right_slope_ref1_result=m_right_slope_ref1(ind_ref1_right);
+                   m_left_slope_ref1_result=m_left_slope_ref1(ind_ref1_right);  
+                   ind_ref1=ind_ref1_right; 
+                else
+                   m_right_slope_ref1_result=m_right_slope_ref1(ind_ref1_left);
+                   m_left_slope_ref1_result=m_left_slope_ref1(ind_ref1_left);  
+                   ind_ref1=ind_ref1_left;
+                end 
+           end     
+           
+       end
+    end
+end
+
+%% start loop to find calculate the gradient for standard images
+%% ref2 %%
+
+dif=[];
+min_left=[];
+min_right=[];
+min_ind_ref=[];
+max_ind_ref=[];
+loop=0;
+%% start loop to find calculate the gradient for noisy images  
+
+for i=ref2
+    
+    loop=loop+1;
+    dif = abs(data3(row,:)-i);
+    min_left=min(dif(1,(left_lower:left_upper))); % get left-sided profile min value
+    min_right=min(dif(1,(right_lower:right_upper))); % get left-sided profile min value
+    %% location of the gradient. this was defined at ICE function
+    min_ind_ref=min(find(dif(1,(left_lower:left_upper))==min_left));
+    max_ind_ref=(length(dif(1,(1:right_lower-1))))+min(find(dif(1,(right_lower:right_upper))==min_right));
+    %% now compute the gradient %%
+
+    % n=6;% first 6 min values. hope to get one value of left and right slope of profile
+    % xs = sort(dif);
+    % min_xs=min(xs);
+    if max_value<i
+    %     val=xs(1:n);
+    %     [~,col]=size(val);
+    %     for ii=1:col
+    %     ind_ref1=min(find(dif==val(ii)));% first two indexes closest to ref1/ min or max doesn't matter
+    %     save_ind_ref1(:,ii)=ind_ref1;% first two indexes closest to ref1
+    %     end
+    %     min_ind_ref=min(save_ind_ref1);% should be left slope of profile
+    %     max_ind_ref=max(save_ind_ref1);% should be right slope of profile
+    %     
+        if max_ind_ref >= length_data3400 % maybe min needs to be adjusted too
+            max_ind_ref=length_data3400-3;
+            if min_ind_ref <= 2
+            min_ind_ref=3;
+            end
+            if min_ind_ref >= 1021
+            min_ind_ref=1020;
+            end
+            m_left_slope_ref2(loop,:)=(data3(row,min_ind_ref-2)-data3(row,min_ind_ref+2))/((min_ind_ref-2)-(min_ind_ref+2));%calc gradient of slope m= y2-y1/x2-x1 
+            m_right_slope_ref2(loop,:)=(data3(row,max_ind_ref-2)-data3(row,max_ind_ref+2))/((max_ind_ref-2)-(max_ind_ref+2));%calc gradient of slope m= y2-y1/x2-x1 
+
+        else
+            if min_ind_ref <= 2
+            min_ind_ref=3;
+            end
+            if max_ind_ref <= 2
+            max_ind_ref=3;
+            end
+            if min_ind_ref >= 1021
+            min_ind_ref=1020;
+            end
+            if max_ind_ref >= 1021
+            max_ind_ref=1020;
+            end
+            m_left_slope_ref2(loop,:)=(data3(row,min_ind_ref-2)-data3(row,min_ind_ref+2))/((min_ind_ref-2)-(min_ind_ref+2));%calc gradient of slope m= y2-y1/x2-x1 
+            m_right_slope_ref2(loop,:)=(data3(row,max_ind_ref-2)-data3(row,max_ind_ref+2))/((max_ind_ref-2)-(max_ind_ref+2));%calc gradient of slope m= y2-y1/x2-x1 
+        end
+    end
+end
+
+%% clean up data
+empty_m_left_slope_ref2=isempty(m_left_slope_ref2);
+empty_m_right_slope_ref2=isempty(m_right_slope_ref2);
+if empty_m_left_slope_ref2 == 1 || empty_m_right_slope_ref2 == 1
+    m_left_slope_ref1_result=-9999;
+    m_right_slope_ref1_result=9999;
+end     
+
+if m_left_slope_ref1_result==-9999 && m_right_slope_ref1_result==9999
+else
+    ind_ref2_left=min(find(min(m_left_slope_ref2)==m_left_slope_ref2));
+    ind_ref2_right=max(find(max(m_right_slope_ref2)==m_right_slope_ref2));
+    
+    empty_ind_ref2_left = isempty(ind_ref2_left);
+    empty_ind_ref2_right = isempty(ind_ref2_right);
+    
+    if empty_ind_ref2_left == 0 && empty_ind_ref2_right == 0
+        ind_ref_value=max(find(ind_ref2_left==ind_ref2_right));
+        l_ind_ref2_left=length(ind_ref2_left);
+        l_ind_ref2_right=length(ind_ref2_right);
+        if l_ind_ref2_left> l_ind_ref2_right
+            ind_ref2= ind_ref2_left(ind_ref_value);
+        else
+            ind_ref2= ind_ref2_right(ind_ref_value);  
+        end
+    else
+        if empty_ind_ref2_left == 1
+          ind_ref2_left=NaN;      
+        end    
+        if empty_ind_ref2_right == 1
+            ind_ref2_right=NaN;   
+        end 
+        ind_ref_value=max(find(ind_ref2_left==ind_ref2_right));
+        l_ind_ref2_left=length(ind_ref2_left);
+        l_ind_ref2_right=length(ind_ref2_right);
+        if l_ind_ref2_left> l_ind_ref2_right
+            ind_ref2= ind_ref2_left(ind_ref_value);
+        else
+            ind_ref2= ind_ref2_right(ind_ref_value);  
+        end
+    end   
+  
+    empty_ind_ref2 = isempty(ind_ref2);
+    if empty_ind_ref2== 0     
+        m_left_slope_ref2_result=m_left_slope_ref2(ind_ref2);
+        m_right_slope_ref2_result=m_right_slope_ref2(ind_ref2);    
+    else
+       m_left_slope_ref2_value=m_left_slope_ref2(ind_ref2_left);
+       m_right_slope_ref2_value=m_right_slope_ref2(ind_ref2_right);
+       if abs(m_right_slope_ref2_value)>abs(m_left_slope_ref2_value)
+           m_right_slope_ref2_result=m_right_slope_ref2_value;
+           m_left_slope_ref2_result=m_left_slope_ref2(ind_ref2_right);
+           ind_ref2=ind_ref2_right;
+       else
+            m_left_slope_ref2_result=m_left_slope_ref2_value;
+            m_right_slope_ref2_result=m_right_slope_ref2(ind_ref2_left);
+            ind_ref2=ind_ref2_left;
+       end
+    end
+end
+
+%% compare gradients of noisy image and standard image the higher the gradient the better suitable is the threshold %%
+
+empty_value_pcut = isempty(value_pcut);         
+if empty_value_pcut == 1
+    % left to left
+    vector_m_left=[m_left_slope_ref1_result,m_left_slope_ref2_result];
+    inx_max_m_left=max(find(vector_m_left==min(vector_m_left)));
+
+    % right to right
+    vector_m_right=[m_right_slope_ref1_result,m_right_slope_ref2_result];
+    inx_max_m_right=max(find(vector_m_right==max(vector_m_right)));
+
+    if  sum(vector_m_right) == 19998 && abs(sum(vector_m_left)) == 19998 
+        value_pcut=1;
+        ref_val_1=[];
+    else
+        if inx_max_m_left == inx_max_m_right
+            if inx_max_m_left == 1
+                  value_pcut=ref1(ind_ref1);
+                  ref_val_1=ref1(ind_ref1);
+            else 
+                 value_pcut=ref2(ind_ref2);
+                 ref_val_1=[];
+            end
+
+        else
+
+            value_pcut=ref2(ind_ref2);
+            ref_val_1=[];
+        end 
+    end
+    
+end
+
+
+
