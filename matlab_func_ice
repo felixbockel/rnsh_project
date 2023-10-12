@@ -1,0 +1,456 @@
+function [data3,value_pcut,ref_val_1] = ICE(data,scf_value)
+%% image contrast enhancement %%
+%data2 = uint8(255 * mat2gray(data1));
+%figure;imshow(enhanced,[]);
+data3 = double(data);
+%figure;imshow(data3,[]);
+
+%figure;plot(data3(330,:));
+%[row,col]=size(data1);
+
+% % % find profile for PCUT, before find background
+% % row_up=std(data3(100,:)); %row
+% % row_down=std(data3(end-100,:));
+% % col_up=std(data3(:,100)); %col
+% % col_down=std(data3(:,end-100));
+% % if row_up<10
+% %     min_dat=min(data3(100,:));
+% %     max_dat=max(data3(100,:));
+% %     
+% % elseif row_down<10
+% %     
+% % elseif col_up<10
+% %     
+% % elseif col_down<10
+% %     
+% % end
+
+
+%% find best suitable profile and get location of gradients
+
+if scf_value==1 % scf field present
+ row=300;%200,400,600 % 400 is center of image and very likely that breast is in FOV 
+ 
+ length_dat=length(data3(row,:));
+ loop_count=0;
+ for ii=1:length_dat 
+     if ii>1
+     val=data3(row,ii);
+     loop_count=loop_count+1;
+     val_prev=data3(row,ii-1);    
+     diff_val=abs(val_prev-val);
+     save_diff_val(:,loop_count)=diff_val;
+     
+     end
+ end
+ std_save_diff_val=std(save_diff_val);
+ if std_save_diff_val<10 % <10 just background, find another row for better profile
+     sequence=[400,500,600,700,100,200];    
+     for iii=sequence
+        row=iii;
+        length_dat=length(data3(iii,:));
+         loop_count=0;
+         for ii=1:length_dat 
+             if ii>1
+             val=data3(iii,ii);
+             loop_count=loop_count+1;
+             val_prev=data3(iii,ii-1);    
+             diff_val=abs(val_prev-val);
+             save_diff_val(:,loop_count)=diff_val;
+             end
+         end
+         std_save_diff_val=std(save_diff_val);
+         if std_save_diff_val>10
+         
+            break 
+         end
+     end
+     
+     [peak_max,max_ind,~,~]=extrema(save_diff_val);
+     empty_peak_max=isempty(peak_max);
+     length_peak_max=length(peak_max);
+     if empty_peak_max==0
+         if length_peak_max>1
+             first_max=peak_max(1,1);
+             first_max_ind=max_ind(1,1);
+             below_twenty = find(save_diff_val < 20);% 20 is a good value for DIBH cases. can be changed if necessary
+             first_max_uppermax = max(find(below_twenty > first_max_ind,1,'first'));
+             ind_first_max_upper=below_twenty(first_max_uppermax);
+             empty_first_max_uppermax=isempty(first_max_uppermax);
+             if empty_first_max_uppermax == 0
+                 if first_max_uppermax < length_dat && first_max_uppermax > 1
+                 first_max_lowermax = first_max_uppermax-1;
+                 ind_first_max_lower=below_twenty(first_max_lowermax);
+                 else
+                 first_max_lowermax = first_max_uppermax;
+                 ind_first_max_lower=below_twenty(first_max_lowermax);
+                 end
+             else
+                 ind_sec_max_lower=[];
+                 ind_sec_max_upper=[];
+                 ind_first_max_lower=[];
+                 ind_first_max_upper=[]; 
+             end
+
+             below_twenty=[];
+             sec_max = peak_max(1,2);%2nd max
+             sec_max_ind=max_ind(1,2);
+             below_twenty = find(save_diff_val < 20);% 20 is a good value for DIBH cases. can be changed if necessary
+             sec_max_uppermax = max(find(below_twenty > sec_max_ind,1,'first'));
+             ind_sec_max_upper=below_twenty(sec_max_uppermax);
+             empty_sec_max_uppermax=isempty(sec_max_uppermax);
+             if empty_sec_max_uppermax == 0
+                 if sec_max_uppermax < length_dat && sec_max_uppermax > 1
+                 sec_max_lowermax = sec_max_uppermax-1;
+                 ind_sec_max_lower=below_twenty(sec_max_lowermax);
+                 else
+                 sec_max_lowermax = sec_max_uppermax;
+                 ind_sec_max_lower=below_twenty(sec_max_lowermax);
+                 end
+             else
+                 ind_sec_max_lower=[];
+                 ind_sec_max_upper=[];
+                 ind_first_max_lower=[];
+                 ind_first_max_upper=[]; 
+             end
+         else
+             ind_sec_max_lower=[];
+             ind_sec_max_upper=[];
+             ind_first_max_lower=[];
+             ind_first_max_upper=[];
+         end
+         
+     else
+         ind_sec_max_lower=[];
+         ind_sec_max_upper=[];
+         ind_first_max_lower=[];
+         ind_first_max_upper=[];
+     end
+     
+ else
+     [peak_max,max_ind,~,~]=extrema(save_diff_val);
+     empty_peak_max=isempty(peak_max);
+     length_peak_max=length(peak_max);
+     if empty_peak_max==0
+         if length_peak_max>1
+             first_max=peak_max(1,1);
+             first_max_ind=max_ind(1,1);
+             below_twenty = find(save_diff_val < 20);% 20 is a good value for DIBH cases. can be changed if necessary
+             first_max_uppermax = max(find(below_twenty > first_max_ind,1,'first'));
+             ind_first_max_upper=below_twenty(first_max_uppermax);
+             empty_first_max_uppermax=isempty(first_max_uppermax);
+             if empty_first_max_uppermax == 0
+                 if first_max_uppermax < length_dat && first_max_uppermax > 1
+                 first_max_lowermax = first_max_uppermax-1;
+                 ind_first_max_lower=below_twenty(first_max_lowermax);
+                 else
+                 first_max_lowermax = first_max_uppermax;
+                 ind_first_max_lower=below_twenty(first_max_lowermax);
+                 end
+             else
+                 ind_sec_max_lower=[];
+                 ind_sec_max_upper=[];
+                 ind_first_max_lower=[];
+                 ind_first_max_upper=[]; 
+             end
+
+             below_twenty=[];
+             sec_max = peak_max(1,2);%2nd max
+             sec_max_ind=max_ind(1,2);
+             below_twenty = find(save_diff_val < 20);% 20 is a good value for DIBH cases. can be changed if necessary
+             sec_max_uppermax = max(find(below_twenty > sec_max_ind,1,'first'));
+             ind_sec_max_upper=below_twenty(sec_max_uppermax);
+             empty_sec_max_uppermax=isempty(sec_max_uppermax);
+             if empty_sec_max_uppermax == 0
+                 if sec_max_uppermax < length_dat && sec_max_uppermax > 1
+                 sec_max_lowermax = sec_max_uppermax-1;
+                 ind_sec_max_lower=below_twenty(sec_max_lowermax);
+                 else
+                 sec_max_lowermax = sec_max_uppermax;
+                 ind_sec_max_lower=below_twenty(sec_max_lowermax);
+                 end
+             else
+                 ind_sec_max_lower=[];
+                 ind_sec_max_upper=[];
+                 ind_first_max_lower=[];
+                 ind_first_max_upper=[]; 
+             end
+         else
+             ind_sec_max_lower=[];
+             ind_sec_max_upper=[];
+             ind_first_max_lower=[];
+             ind_first_max_upper=[];
+         end
+         
+     else
+         ind_sec_max_lower=[];
+         ind_sec_max_upper=[];
+         ind_first_max_lower=[];
+         ind_first_max_upper=[];
+     end
+ end
+else % no scf field
+ row=400;%200,400,600 % 400 is center of image and very likely that breast is in FOV 
+ length_dat=length(data3(row,:));
+ loop_count=0;
+ for ii=1:length_dat 
+     if ii>1
+     val=data3(row,ii);
+     loop_count=loop_count+1;
+     val_prev=data3(row,ii-1);    
+     diff_val=abs(val_prev-val);
+     save_diff_val(:,loop_count)=diff_val;
+     end
+ end
+ std_save_diff_val=std(save_diff_val);
+ if std_save_diff_val<10 % <10 just background, find another row for better profile
+     sequence=[500,600,700,100,200,300];    
+     for iii=sequence
+        row=iii;
+        length_dat=length(data3(iii,:));
+         loop_count=0;
+         for ii=1:length_dat 
+             if ii>1
+             val=data3(iii,ii);
+             loop_count=loop_count+1;
+             val_prev=data3(iii,ii-1);    
+             diff_val=abs(val_prev-val);
+             save_diff_val(:,loop_count)=diff_val;
+             end
+         end
+         std_save_diff_val=std(save_diff_val);
+         if std_save_diff_val>10
+            
+            break 
+         end
+     end
+          [peak_max,max_ind,~,~]=extrema(save_diff_val);
+     empty_peak_max=isempty(peak_max);
+     length_peak_max=length(peak_max);
+     if empty_peak_max==0
+         if length_peak_max>1
+             first_max=peak_max(1,1);
+             first_max_ind=max_ind(1,1);
+             below_twenty = find(save_diff_val < 20);% 20 is a good value for DIBH cases. can be changed if necessary
+             first_max_uppermax = max(find(below_twenty > first_max_ind,1,'first'));
+             ind_first_max_upper=below_twenty(first_max_uppermax);
+             empty_first_max_uppermax=isempty(first_max_uppermax);
+             if empty_first_max_uppermax == 0
+                 if first_max_uppermax < length_dat && first_max_uppermax > 1
+                 first_max_lowermax = first_max_uppermax-1;
+                 ind_first_max_lower=below_twenty(first_max_lowermax);
+                 else
+                 first_max_lowermax = first_max_uppermax;
+                 ind_first_max_lower=below_twenty(first_max_lowermax);
+                 end
+             else
+                 ind_sec_max_lower=[];
+                 ind_sec_max_upper=[];
+                 ind_first_max_lower=[];
+                 ind_first_max_upper=[]; 
+             end
+
+             below_twenty=[];
+             sec_max = peak_max(1,2);%2nd max
+             sec_max_ind=max_ind(1,2);
+             below_twenty = find(save_diff_val < 20);% 20 is a good value for DIBH cases. can be changed if necessary
+             sec_max_uppermax = max(find(below_twenty > sec_max_ind,1,'first'));
+             ind_sec_max_upper=below_twenty(sec_max_uppermax);
+             empty_sec_max_uppermax=isempty(sec_max_uppermax);
+             if empty_sec_max_uppermax == 0
+                 if sec_max_uppermax < length_dat && sec_max_uppermax > 1
+                 sec_max_lowermax = sec_max_uppermax-1;
+                 ind_sec_max_lower=below_twenty(sec_max_lowermax);
+                 else
+                 sec_max_lowermax = sec_max_uppermax;
+                 ind_sec_max_lower=below_twenty(sec_max_lowermax);
+                 end
+             else
+                 ind_sec_max_lower=[];
+                 ind_sec_max_upper=[];
+                 ind_first_max_lower=[];
+                 ind_first_max_upper=[]; 
+             end
+         else
+             ind_sec_max_lower=[];
+             ind_sec_max_upper=[];
+             ind_first_max_lower=[];
+             ind_first_max_upper=[];
+         end
+         
+     else
+         ind_sec_max_lower=[];
+         ind_sec_max_upper=[];
+         ind_first_max_lower=[];
+         ind_first_max_upper=[];
+     end
+ else
+     [peak_max,max_ind,~,~]=extrema(save_diff_val);
+     empty_peak_max=isempty(peak_max);
+     length_peak_max=length(peak_max);
+     if empty_peak_max==0
+         if length_peak_max>1
+             first_max=peak_max(1,1);
+             first_max_ind=max_ind(1,1);
+             below_twenty = find(save_diff_val < 20);% 20 is a good value for DIBH cases. can be changed if necessary
+             first_max_uppermax = max(find(below_twenty > first_max_ind,1,'first'));
+             ind_first_max_upper=below_twenty(first_max_uppermax);
+             empty_first_max_uppermax=isempty(first_max_uppermax);
+             if empty_first_max_uppermax == 0
+                 if first_max_uppermax < length_dat && first_max_uppermax > 1
+                 first_max_lowermax = first_max_uppermax-1;
+                 ind_first_max_lower=below_twenty(first_max_lowermax);
+                 else
+                 first_max_lowermax = first_max_uppermax;
+                 ind_first_max_lower=below_twenty(first_max_lowermax);
+                 end
+             else
+                 ind_sec_max_lower=[];
+                 ind_sec_max_upper=[];
+                 ind_first_max_lower=[];
+                 ind_first_max_upper=[]; 
+             end
+
+             below_twenty=[];
+             sec_max = peak_max(1,2);%2nd max
+             sec_max_ind=max_ind(1,2);
+             below_twenty = find(save_diff_val < 20);% 20 is a good value for DIBH cases. can be changed if necessary
+             sec_max_uppermax = max(find(below_twenty > sec_max_ind,1,'first'));
+             ind_sec_max_upper=below_twenty(sec_max_uppermax);
+             empty_sec_max_uppermax=isempty(sec_max_uppermax);
+             if empty_sec_max_uppermax == 0
+                 if sec_max_uppermax < length_dat && sec_max_uppermax > 1
+                 sec_max_lowermax = sec_max_uppermax-1;
+                 ind_sec_max_lower=below_twenty(sec_max_lowermax);
+                 else
+                 sec_max_lowermax = sec_max_uppermax;
+                 ind_sec_max_lower=below_twenty(sec_max_lowermax);
+                 end
+             else
+                 ind_sec_max_lower=[];
+                 ind_sec_max_upper=[];
+                 ind_first_max_lower=[];
+                 ind_first_max_upper=[]; 
+             end
+         else
+             ind_sec_max_lower=[];
+             ind_sec_max_upper=[];
+             ind_first_max_lower=[];
+             ind_first_max_upper=[];
+         end
+         
+     else
+         ind_sec_max_lower=[];
+         ind_sec_max_upper=[];
+         ind_first_max_lower=[];
+         ind_first_max_upper=[];
+     end
+ end
+end
+
+%% function pcut finds a good intensity threshold value to be able to cut off background 
+[value_pcut,ref_val_1]=PCUT(data3,row,ind_sec_max_lower,ind_sec_max_upper,ind_first_max_lower,ind_first_max_upper);% first and second max indicate borders of where bckground starts and ends. in between there is signal.
+
+data3(data3>value_pcut)=0;%wedge noise frames data3(data3>16300)=0 change to 16320 seems better results % IMRT&conformal&wedge no noise data3(data3>16000)=0;
+%get profile of image; use at least ten point of profile and calc the m. highest or lowest m indicated noise to signal border. get location of it and calc min and max intensity within that range. thats how background noise can be cutted for each image. 
+row=[];
+
+%% get rid of FOV frame which containts high pixel values and set to background by using FFT and threshold of 2500 %%
+fftImage = fft2(data3);
+% centeredFFTImage = log(fftshift(real(fftImage)));
+%figure;imshow(centeredFFTImage, []);
+% Zero out the corners
+window = 10;
+fftImage(1:window, 1:window) = 0;
+fftImage(end-window:end, 1:window) = 0;
+fftImage(1:window, end-window:end) = 0;
+fftImage(end-window:end, end-window:end) = 0;
+
+% Display the filtered FFT image.
+% Shift it and take log so we can see it easier.
+% centeredFFTImage = log(fftshift(real(fftImage)));
+%figure;imshow(centeredFFTImage, []);
+% m = abs(fftImage); 
+% f = (0:length(fftImage)-1)*50/length(fftImage);
+%figure;plot(f,m)
+
+% Inverse FFT to get high pass filtered image.
+output = ifft2(fftImage);
+real_output=real(output);
+%figure;imshow(real_output, []);
+
+[row,col]=size(real_output);
+pos_save=zeros(row,col);
+for i=1:row
+    pos_zero_positive=find(real_output(i,:)>2500);% IMRT fields had 2000 % initially 3000
+    pos_zero_negative=find(real_output(i,:)<-2500);% IMRT fields had 2000 % initially 3000
+    value_empty_positive = isempty(pos_zero_positive);
+    value_empty_negative = isempty(pos_zero_negative);         
+    if value_empty_positive == 0
+         data3(i,pos_zero_positive)=0;    
+    end
+    if value_empty_negative == 0
+         data3(i,pos_zero_negative)=0;    
+    end
+end
+%figure;imshow(data3,[]);
+
+%% get rid of periodic noise by using low-pass filter %%
+ lowpass = 15; % best compromise
+ %highpass = 20;
+ 
+ %data3_filt=data3;
+ %data3_filt(data3_filt == 0) = NaN;
+ %Idm = nanmedian(data3_filt, lowpass);
+ 
+ Idm2 =  medfilt2(data3, [lowpass lowpass]);
+ %imshow(Idm);
+ 
+ %Idm3 = Idm2 - medfilt2(Idm2, [highpass highpass]);
+ %imshow(Ide);
+ 
+ %finalFilteredGrayImage = Idm; %+ Ide;
+ %figure;imagesc(Idm); colormap gray;
+ %figure;imshow(Idm,[]);
+ %figure;imshow(Idm2,[]);
+ 
+ data3=Idm2;
+ %data3=Idm3;
+ Idm2(Idm2 == 0) = 16000;
+ %figure;imshow(Idm2,[]);
+
+
+
+
+
+%%%%%% enhance image contrast
+%  Idm3 = uint8(255 * mat2gray(Idm2));
+%  b = imsharpen(Idm3,'Radius',2,'Amount',1);
+%  figure;imshow(b,[]);
+% % 
+%  Idm3 = uint8(255 * mat2gray(Idm2));
+%  data3_imadjust = imadjust(Idm3);
+%  data3_histeq = histeq(Idm3);
+%  data3_adapthisteq = adapthisteq(Idm3);
+% % 
+%  figure;imshow(data3_imadjust,[]);
+%  figure;imshow(data3_histeq,[]);
+%  figure;imshow(data3_adapthisteq,[]);
+%  
+%  figure;plot(b(120,:));
+%  figure;plot(b(330,:));
+%  figure;plot(b(600,:));
+%  
+%  figure;plot(data3_imadjust(120,:));
+%  figure;plot(data3_imadjust(330,:));
+%  figure;plot(data3_imadjust(600,:));
+% 
+%  figure;plot(data3_histeq(120,:));
+%  figure;plot(data3_histeq(330,:));
+%  figure;plot(data3_histeq(600,:));
+%  
+%  figure;plot(data3_adapthisteq(120,:));
+%  figure;plot(data3_adapthisteq(330,:));
+%  figure;plot(data3_adapthisteq(600,:));
+%  
+ 
