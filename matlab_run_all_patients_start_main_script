@@ -1,0 +1,275 @@
+
+
+tic;
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\yager\fr 12';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\yager\fr 14';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\yager\fr 15';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\yager\fr 16';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\yager\fr 17';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\yager\fr 18';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\yager\fr 19';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\yager\fr 20';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\yager\fr 22';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr1';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr2';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr3';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr5';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr6';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr7';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr8';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr10';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr11';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr12';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr14';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr15';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr16';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr17';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr18';
+% image_processing_workflow_auto_V4
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr19';
+% image_processing_workflow_auto_V4
+
+
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\gasparini_fr24_20072018';
+% read_hndfolder_save_as_image_auto_run
+% 
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\gasparini_fr25_23072018';
+% read_hndfolder_save_as_image_auto_run
+% 
+% imrt=0;%not imrt
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr1';
+% image_processing_workflow_auto_V4
+% imrt=0;%not imrt
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr2';
+% image_processing_workflow_auto_V4
+% imrt=0;%not imrt
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr2';
+% image_processing_workflow_auto_V4
+% imrt=0;%not imrt
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr3';
+% image_processing_workflow_auto_V4
+% 
+% imrt=0;%not imrt
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr2';
+% image_processing_workflow_auto_V4
+% imrt=0;%not imrt
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr3';
+% image_processing_workflow_auto_V4
+% imrt=0;%not imrt
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr4';
+% image_processing_workflow_auto_V4
+
+
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Huang\fr3';
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr2';
+% image_processing_workflow_V4_auto
+% 
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr2';
+% image_processing_workflow_V4_auto
+% 
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr3';
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr2';
+% image_processing_workflow_V4_auto
+% 
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr2';
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr3';
+% image_processing_workflow_V4_auto
+
+% 
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr3';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr4';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr5';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr6';
+% read_hndfolder_save_as_image_auto_run
+
+
+% 
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr5';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr8';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr9';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr10';
+image_processing_workflow_V4_auto
+% 
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Huang\fr4';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Huang\fr6';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Huang\fr8';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Huang\fr9';
+image_processing_workflow_V4_auto
+
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Huang\fr10'; % not done yet
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Huang\fr11';
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Huang\fr14';
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Huang\fr15'; % until here
+% image_processing_workflow_V4_auto
+
+
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr5';
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr7';
+% image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr8';
+image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr9';
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr10';
+% image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr11';
+image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr12';
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr13';
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr14';
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr3';
+% image_processing_workflow_V4_auto % field 5 got error! maybe to less images
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr4';
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr5';
+% image_processing_workflow_V4_auto
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr6';
+% image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr3';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr4';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr5';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr6';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr7';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr8';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr9';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr10';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr11';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr12';
+image_processing_workflow_V4_auto
+pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\fr13';
+image_processing_workflow_V4_auto
+% 
+% 
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\Gordon_Fr14_10082018';% not done yet
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gordon\Gordon_Fr15_13082018';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr6_maybe';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr7_maybe';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr13';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr14';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr15';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr16';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr17';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr18';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr12';% until here
+% read_hndfolder_save_as_image_auto_run 
+
+
+
+
+
+
+
+% 
+
+% imrt=1;%imrt
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Huang\fr1';
+% image_processing_workflow_auto_V4
+% 
+% imrt=0;%not imrt
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr22';
+% image_processing_workflow_auto_V4
+% imrt=0;
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr23';
+% image_processing_workflow_auto_V4
+% imrt=0;
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Hassena\fr1';
+% image_processing_workflow_auto_V4
+% 
+% imrt=0;
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Liu\fr1';
+% image_processing_workflow_auto_V4
+
+%% time of process %%
+t=toc; % time is seconds
+t2=round(t);
+time=datestr(datenum(0,0,0,0,0,t2),'HH:MM:SS');%Imsexy% hours:minutes:seconds
+
+
+
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\22062018_gasparini_fr6';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr2';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\fr3';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\gasparini_fr16_09072018';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\gasparini_fr17_10072018';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\gasparini_fr18_110718_ts3';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\Gasparini_fx7';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\Gasparini_Fx08_26062018';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\Gasparini_Fx10_28062018';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\Gasparini_Fx11_29062018';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\gasparini_fx12_02072018';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\Gasparini_Fx14_05072018';
+% read_hndfolder_save_as_image_auto_run
+% pwd_file_path='Z:\12 Staff\Felix\iT_BraveH\Gasparini\Gasparini_Fx15_06072018';
+% read_hndfolder_save_as_image_auto_run
