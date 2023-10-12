@@ -1,0 +1,175 @@
+clear
+close all
+clc
+tic;
+
+% Analysis of all plots of each patient %
+
+%% find analysis folder of each fr %%
+%startupIALML
+loop_counter=0;
+loop_counter_scf=0;
+folder_name = uigetdir(pwd);% click on Patient folder, which contains all fr and each fr contains analysis and field0... files
+mainfolder=dir(folder_name);
+mainfolder(1:2)=[]; 
+l_file_main=length(mainfolder); % number of fr
+foldername_path=strcat(folder_name);
+loop=0;
+row_number=2000;
+all_plot_chestw=NaN(row_number,1);
+all_plot_scf=NaN(row_number,1);
+[row_all_plot,~]=size(all_plot_chestw);
+if exist(foldername_path,'file')==7
+    for count_file=1:l_file_main
+        fr_name=mainfolder(count_file).name;
+        sec_path=strcat(folder_name,'\',fr_name);
+        find_thumb=strfind(sec_path,'Thumbs'); % just want to make sure image folder is not empty
+        if find_thumb == 1
+        else        
+            if exist(sec_path,'file')==7 % 7 is the indicator if the path contains a folder, 3 will be the indicator if file exists
+                third_folder=dir(sec_path);
+                third_folder(1:2)=[]; 
+                l_file_third=length(third_folder); % number of fr
+                for count_file_third=1:l_file_third
+                %loop=loop+1;
+                %empty_string(:,loop)=isnumeric({third_folder(count_file_sec).name}); % find if name contains string
+
+                    %sum_empty_string=sum(empty_string);
+                    %if sum_empty_string>0
+                    analysis_file_find=strfind(third_folder(count_file_third).name,'Analysis'); %find field folders
+                    empty_analysis_file_find=isempty(analysis_file_find);
+                        if empty_analysis_file_find == 0
+                        analysis_file=strcat(folder_name,'\',fr_name,'\','Analysis');
+                        fourthfolder=dir(analysis_file);
+                        fourthfolder(1:2)=[]; 
+                        l_file_secfolder=length(fourthfolder); % number of fr
+                            for count_file_fourth=1:l_file_secfolder
+                            plot_chestw_scf=strfind(fourthfolder(count_file_fourth).name,'plot_all_frames'); %find field folders
+                            empty_plot_chestw_scf=isempty(plot_chestw_scf);
+                                if empty_plot_chestw_scf == 0
+                                    plot_scf=strfind(fourthfolder(count_file_fourth).name,'scf'); %find field folders
+                                    empty_plot_scf=isempty(plot_scf);
+                                    if empty_plot_scf == 1 % found chestw plots
+                                        loop_counter=loop_counter+1; % must be 2
+                                        filename=strcat(folder_name,'\',fr_name,'\','Analysis','\',fourthfolder(count_file_fourth).name);
+                                        fileID = fopen(filename);
+                                        C = textscan(fileID,'%s');
+                                        C_double=str2double(C{1,1});
+                                        length_cdouble=length(C_double);
+                                        if length_cdouble<row_all_plot
+                                        C_double(end+1:row_number)=NaN;
+                                        end
+                                        all_plot_chestw(:,loop_counter)=C_double;
+
+                                    else % found scf plots
+                                        loop_counter_scf=loop_counter_scf+1; % must be 2
+                                        filename=strcat(folder_name,'\',fr_name,'\','Analysis','\',fourthfolder(count_file_fourth).name);
+                                        fileID = fopen(filename);
+                                        C = textscan(fileID,'%s');
+                                        C_double=str2double(C{1,1});
+                                        length_cdouble=length(C_double);
+                                        if length_cdouble<row_all_plot
+                                        C_double(end+1:row_number)=NaN;
+                                        end
+                                        all_plot_scf(:,loop_counter_scf)=C_double;
+
+                                    end
+
+                                end
+                            end
+                        end
+                    %end
+                end
+            end
+        end
+
+    end
+end
+
+%% Display and safe DVH %%
+
+%each col contains numbers and nan and represents each fr. get rid of nan
+%and divide length by two. then I have x,y for plotting. first number must
+%be x (treatment time in sec) and second y (amplitude in mm)
+
+empty_all_plot_chestw=isempty(all_plot_chestw);
+if empty_all_plot_chestw==0
+[~,col_all_plot]=size(all_plot_chestw);
+    for ii=1:col_all_plot
+        one_plot=all_plot_chestw(:,ii);
+        one_plot(isnan(one_plot))=[];
+        length_one_plot=length(one_plot);
+        x_axes=one_plot(1:length_one_plot/2,1);
+        y_axes=one_plot(length_one_plot/2+1:end,1);
+        saveplot=plot(x_axes,y_axes);
+        hold all
+        
+
+    end
+end
+hold off
+
+parts = strsplit(folder_name, '\');
+parentfileparts = parts(end);
+parentfileparts2 = parts(1:end-1);
+folder_name_onelevelshorter=strjoin(parentfileparts2);
+filename=strcat(parentfileparts);
+title(filename);
+ylabel('shift in isocenter [mm]');
+xlabel('time of beam on [sec]');%(1st frame is baseline w shift 0 mm)
+%legend('motion','Location','southoutside');
+%filepath_save=strcat(folder_name, '\');
+data_name=strcat(folder_name,' plot_chestw_breast_motion_all_frames','.jpg');
+saveas(gcf,data_name,'jpg');
+%data_fig = uint8(255 * mat2gray(fig));
+%imwrite(fig,data_name);
+set(gcf, 'Visible', 'off');
+sourcefile = strcat(data_name);
+parts = strsplit(data_name, '\');
+end_part = char(parts(end));
+destinationfile=strcat(folder_name,'\',end_part);
+statusmovefile=movefile(sourcefile,destinationfile);
+        
+        
+        
+empty_all_plot_chestw=isempty(all_plot_scf);
+if empty_all_plot_chestw==0
+[~,col_all_plot]=size(all_plot_scf);
+    for ii=1:col_all_plot
+        one_plot=all_plot_scf(:,ii);
+        one_plot(isnan(one_plot))=[];
+        length_one_plot=length(one_plot);
+        x_axes=one_plot(1:length_one_plot/2,1);
+        y_axes=one_plot(length_one_plot/2+1:end,1);
+        saveplot=plot(x_axes,y_axes);
+        hold all
+
+    end
+end
+
+hold off
+
+parts = strsplit(folder_name, '\');
+parentfileparts = parts(end);
+parentfileparts2 = parts(1:end-1);
+folder_name_onelevelshorter=strjoin(parentfileparts2);
+filename=strcat(parentfileparts,' scf');
+title(filename);
+ylabel('shift in isocenter [mm]');
+xlabel('time of beam on [sec]');%(1st frame is baseline w shift 0 mm)
+%legend('motion','Location','southoutside');
+%filepath_save=strcat(folder_name, '\');
+data_name=strcat(folder_name,' plot_scf_motion_all_frames','.jpg');
+%data_fig = uint8(255 * mat2gray(fig));
+%imwrite(fig,data_name);
+set(gcf, 'Visible', 'off');
+saveas(gcf,data_name,'jpg');
+sourcefile = strcat(data_name);
+parts = strsplit(data_name, '\');
+end_part = char(parts(end));
+destinationfile=strcat(folder_name,'\',end_part);
+statusmovefile=movefile(sourcefile,destinationfile);
+
+%% time of process %%
+t=toc;
+dauer=datestr(datenum(0,0,0,0,0,t),'HH:MM:SS');% hours:minutes:seconds
