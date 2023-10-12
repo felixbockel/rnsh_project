@@ -1,0 +1,1143 @@
+% clear
+% close all
+% clc
+tic;
+
+%% Version 2: 12/06/2018 -... %%
+% created by Felix Bockelmann at RNSH
+% Purpose: to analyse chestwall motion during DIBH Breast treatment by
+% segmenting chestwall and breast tissue of low-contrast images such as
+% MV- images from EPID
+
+%% Information: %%
+
+% load one MV image of each fraction into analysis folder. It is used to get SAD and SID for each field and as a baseline for analysis % 
+% folders should be named with equal length in subfolder:
+% each fraction -> Analysis,field001,field002... (mainfolder -> subfolder)
+% all noise fields in subfolder should be deleted for optimal segmentation
+% please choose one ref image from field001, field002, field003 ...
+% if ref images were chosen already, a *.mat file is saved in Analysis
+% folder. There is no need to choose new ref images anymore. Just click on main folder to start program running.
+% if resegmentation of fr# is needed, clear image_lines and plot_lines folders. The txt. files in Analysis folder overwrites old results with new ones automatically.
+
+
+%%%%
+%adjust code:
+% if MV-image location differs, adjust start and end of segmentation for-loop
+% automate ref image search
+% make seg better and maybe rotate result 90
+% make code run with cine images from aria.
+% get data of RPM and match it with segmented data points
+% QA with phantom: check for accuracy of motion displacement & time interpolation
+% create naming for each field automatically
+% stick 2 codes to 1
+% combine analysis of each fraction to one
+% make code run for boost tmt
+
+%% find patient folder %%
+startupIALML
+
+folder_name = pwd_file_path;% click on Patient folder, which contain analysis and field0... files as secondary folder
+mainfolder=dir(folder_name);
+mainfolder(1:2)=[]; % first two char files are without any modality information, can be deleted
+l_file=length(mainfolder); % number of files in main folder
+for count_file=1:l_file
+ix=strfind(mainfolder(count_file).name,'d'); %find field folders
+ix_breast=isempty(ix);
+if count_file == 1
+re_image_name=strcat('refimages','_',num2str(count_file),'.mat');
+re_image_name2=strcat('refimages','_',num2str(count_file),'_',num2str(2),'.mat');
+image_imrt=strcat('image_imrt','_',num2str(count_file),'.mat');
+else
+re_image_name=strcat('refimages','_',num2str(count_file-1),'.mat');
+re_image_name2=strcat('refimages','_',num2str(count_file-1),'_',num2str(2),'.mat');
+image_imrt=strcat('image_imrt','_',num2str(count_file-1),'.mat');
+end
+if ix_breast == 1
+else
+field_name=mainfolder(count_file).name(1:ix(1));
+%% get REF images %%
+
+% reload analysis file 
+analysis_file=strcat(folder_name,'\','Analysis'); % create destination folder, where sequence will be stored 
+% if folder of ref exists then take those otherwise choose new files
+folder_analysis=dir(analysis_file);
+folder_analysis_empty=isempty(folder_analysis);
+if folder_analysis_empty == 1
+        current_file_path=strcat(folder_name,'\',mainfolder(count_file).name);
+        current_file_all=dir(current_file_path);
+        %current_file_all(1:2)=[];
+        %current_file=current_file_all(8); %get 20th image to check if that belongs to scf or breast image
+        %empty_current_file=isempty(current_file.name);
+        %if empty_current_file==1
+        length_file_all=length(current_file_all);
+        current_file=current_file_all(round(length_file_all/2,0));
+        %end
+        file_path=strcat(current_file_path,'\',current_file.name);
+        %% REF: load image set %%
+        %field
+        im = IALML.VMSImageHandler;
+        im.Read(file_path);
+        data = double(im.Data);
+        %figure;imshow(data,[])
+        %% Identify SCF, IMRT and EDW field by using ref images %% 
+        % calc volume of signal
+        [row,~]=size(data_scf_vs_sbf);
+        counter=0;
+        count_row_num=[];
+        for i=1:row 
+           sum_col=sum(data_scf_vs_sbf(i,:));
+           if sum_col>1
+              counter=1+counter;
+              count_row_num(counter,1)=i;
+              num_nonzero_vec=data_scf_vs_sbf(i,:);
+              num_nonzero_vec(num_nonzero_vec==0)=[];
+              length_num_nonzero=length(num_nonzero_vec);
+              count_row_num(counter,2)=length_num_nonzero;
+           end
+        end
+        empty_count_row_num=isempty(count_row_num);
+        if empty_count_row_num==0
+        volume_signal=sum(count_row_num(:,2));%indication of open field or not
+        length_img=length(count_row_num(:,1)); % standard breast fields are about 700 rows and SCF are about 200. Treshold can be 400.
+        else
+        volume_signal=[];
+        length_img=[];
+        end
+        if length_img<400 %SCF
+            scf_data=data_scf_vs_sbf; % here maybe ICE_scf to reduce noise
+        else
+            % IMRT or EDW
+            current_file=current_file_all(8); %get 20th image to check if that belongs to scf or breast image
+            empty_current_file=isempty(current_file.name);
+            if empty_current_file==1
+            length_file_all=length(current_file_all);
+            current_file=current_file_all(round(length_file_all/2,0));
+            end
+            file_path=strcat(current_file_path,'\',current_file.name);
+            %% REF: load image set %%
+            %field
+            im = IALML.VMSImageHandler;
+            im.Read(file_path);
+            data = double(im.Data);
+            %figure;imshow(data,[])
+            %% Identify SCF, IMRT and EDW field by using ref images %% 
+
+            scf_value=1;
+            [data_scf_vs_sbf,scf_pcut,scf_ref1] = ICE(data,scf_value);
+            scf_value=[];
+
+            % calc volume of signal
+            [row,~]=size(data_scf_vs_sbf);
+            counter=0;
+            count_row_num=[];
+            for i=1:row 
+               sum_col=sum(data_scf_vs_sbf(i,:));
+               if sum_col>1
+                  counter=1+counter;
+                  count_row_num(counter,1)=i;
+                  num_nonzero_vec=data_scf_vs_sbf(i,:);
+                  num_nonzero_vec(num_nonzero_vec==0)=[];
+                  length_num_nonzero=length(num_nonzero_vec);
+                  count_row_num(counter,2)=length_num_nonzero;
+               end
+            end
+            empty_count_row_num=isempty(count_row_num);
+            volume_signal=[];
+            length_img=[];
+            if empty_count_row_num==0
+            volume_signal=sum(count_row_num(:,2));%indication of open field or not
+            length_img=length(count_row_num(:,1)); % standard breast fields are about 700 rows and SCF are about 200. Treshold can be 400.
+            else
+            volume_signal=[];
+            length_img=[];
+            end
+
+            if volume_signal>150000 % if higher, then EDW 
+            scf_data=[];
+            imrt=[]; % this field is imrt
+            ref_file_field1=current_file;
+            filepath=file_path;
+            complete_path_field=filepath;%strcat(filepath,ref_file_field1);
+            parts = strsplit(complete_path_field, '\');
+            parentfileparts = parts(1:end-1);
+            filepath_field1=strjoin(parentfileparts, '\');
+            save(re_image_name,'complete_path_field');
+            currentFolder = cd;
+            data_name_path=strcat(currentFolder,'\',re_image_name);
+            destinationfile=strcat(analysis_file,'\',re_image_name);
+            statusmovefile=movefile(data_name_path,destinationfile);
+            
+            save(image_imrt,'imrt');
+            currentFolder = cd;
+            data_name_path=strcat(currentFolder,'\',image_imrt);
+            destinationfile=strcat(analysis_file,'\',image_imrt);
+            statusmovefile=movefile(data_name_path,destinationfile);
+            else
+            scf_data=[];
+            imrt=1; % this field is imrt
+            show_str=strcat('field 00',num2str(count_file-1),': get ref img' )
+            [ref_file_field1,filepath]= uigetfile(folder_name);
+            clc
+            complete_path_field=strcat(filepath,ref_file_field1);
+            parts = strsplit(complete_path_field, '\');
+            parentfileparts = parts(1:end-1);
+            filepath_field1=strjoin(parentfileparts, '\');
+            save(re_image_name,'complete_path_field');
+            currentFolder = cd;
+            data_name_path=strcat(currentFolder,'\',re_image_name);
+            destinationfile=strcat(analysis_file,'\',re_image_name);
+            statusmovefile=movefile(data_name_path,destinationfile);
+            
+            save(image_imrt,'imrt');
+            currentFolder = cd;
+            data_name_path=strcat(currentFolder,'\',image_imrt);
+            destinationfile=strcat(analysis_file,'\',image_imrt);
+            statusmovefile=movefile(data_name_path,destinationfile);
+            
+            end
+        end
+        
+%         promt = 'Reference field: Were Chestwall (primary) and Breast tissue (secondary) completely visible (not covered by Yaw or MLC leaves)? Press [ENTER] for "YES" (both are visible) and [n] for "NO" (Chestwall is visible but Breast tissue is covered (happens a lot for IMRT-fields))  '; % 
+%         input_promt=input(promt,'s');
+%         str_y=strfind(input_promt,'n'); % 1 for '[n]' and 0 for '[ENTER]'
+%         if str_y==1
+%             show_str=strcat('field 00',num2str(count_file-1),': 2.ref to get Breast Tissue')
+%             [ref_file_field1,filepath]= uigetfile(folder_name);
+%             clc
+%             complete_path_field2=strcat(filepath,ref_file_field1);
+%             save(re_image_name2,'complete_path_field2');
+%             currentFolder = pwd;
+%             data_name_path=strcat(currentFolder,'\',re_image_name2);
+%             destinationfile=strcat(analysis_file,'\',re_image_name2);
+%             statusmovefile=movefile(data_name_path,destinationfile);
+%             im = IALML.VMSImageHandler;
+%             im.Read(complete_path_field2);
+%             data_breast_ref = double(im.Data);
+%         else
+%             data_breast_ref=[];
+%         end
+
+else    
+    folder_analysis(1:2)=[];
+    Files=dir(fullfile(analysis_file,re_image_name));
+    [row,~]=size(Files);
+    if row == 1
+       Files=dir(fullfile(analysis_file,image_imrt));
+       [row_imrt,~]=size(Files);
+       if row_imrt == 1  
+       load(strcat(analysis_file,'\',image_imrt),'imrt'); 
+       end
+       load(strcat(analysis_file,'\',re_image_name),'complete_path_field');
+       parts = strsplit(complete_path_field, '\');
+       parentfileparts = parts(1:end-1);
+       filepath_field1=strjoin(parentfileparts, '\');% just get parent folder
+%        data_breast_ref=[];
+%        Files=dir(fullfile(analysis_file,re_image_name2));
+%        [row,~]=size(Files);
+%         if row == 1 
+%             load(strcat(analysis_file,'\',re_image_name2),'complete_path_field2'); 
+%             im = IALML.VMSImageHandler;
+%             im.Read(complete_path_field2);
+%             data_breast_ref = double(im.Data);
+%         end
+       %% REF: load image set %%
+        %field
+        im = IALML.VMSImageHandler;
+        im.Read(complete_path_field);
+        data = double(im.Data);
+        %figure;imshow(data,[])
+        %% Identify SCF vs standard breast field by using ref images %% 
+        scf_value=1;
+        [data_scf_vs_sbf,scf_pcut,scf_ref1] = ICE(data,scf_value);
+        scf_value=[];
+        [row,~]=size(data_scf_vs_sbf);
+        counter=0;
+        count_row_num=[];
+        for i=1:row
+           sum_col=sum(data_scf_vs_sbf(i,:));
+           if sum_col>1
+              counter=1+counter;
+              count_row_num(counter,1)=i;
+              num_nonzero_vec=data_scf_vs_sbf(i,:);
+              num_nonzero_vec(num_nonzero_vec==0)=[];
+              length_num_nonzero=length(num_nonzero_vec);
+              count_row_num(counter,2)=length_num_nonzero;
+           end
+        end
+        empty_count_row_num=isempty(count_row_num);
+        if empty_count_row_num==0
+        volume_signal=sum(count_row_num(:,2));%indication of open field or not
+        length_img=length(count_row_num(:,1)); % standard breast fields are about 700 rows and SCF are about 200. Treshold can be 400.
+        else
+        volume_signal=[];
+        length_img=[];
+        end
+        if length_img<400
+            scf_data=data_scf_vs_sbf; % here maybe ICE_scf to reduce noise
+        else
+            scf_data=[];
+
+        end     
+    
+    else
+        current_file_path=strcat(folder_name,'\',mainfolder(count_file).name);
+        current_file_all=dir(current_file_path);
+        %current_file_all(1:2)=[];
+        %current_file=current_file_all(8); %get 20th image to check if that belongs to scf or breast image
+        %empty_current_file=isempty(current_file.name);
+        %if empty_current_file==1
+        length_file_all=length(current_file_all);
+        current_file=current_file_all(round(length_file_all/2,0));
+        %end
+        file_path=strcat(current_file_path,'\',current_file.name);
+        %% REF: load image set %%
+        %field
+        im = IALML.VMSImageHandler;
+        im.Read(file_path);
+        data = double(im.Data);
+        %figure;imshow(data,[])
+        %% Identify SCF, IMRT and EDW field by using ref images %% 
+        
+        scf_value=1;
+        [data_scf_vs_sbf,scf_pcut,scf_ref1] = ICE(data,scf_value);
+        scf_value=[];
+        
+        % calc volume of signal
+        [row,~]=size(data_scf_vs_sbf);
+        counter=0;
+        count_row_num=[];
+        for i=1:row 
+           sum_col=sum(data_scf_vs_sbf(i,:));
+           if sum_col>1
+              counter=1+counter;
+              count_row_num(counter,1)=i;
+              num_nonzero_vec=data_scf_vs_sbf(i,:);
+              num_nonzero_vec(num_nonzero_vec==0)=[];
+              length_num_nonzero=length(num_nonzero_vec);
+              count_row_num(counter,2)=length_num_nonzero;
+           end
+        end
+        empty_count_row_num=isempty(count_row_num);
+        volume_signal=[];
+        length_img=[];
+        if empty_count_row_num==0
+        volume_signal=sum(count_row_num(:,2));%indication of open field or not
+        length_img=length(count_row_num(:,1)); % standard breast fields are about 700 rows and SCF are about 200. Treshold can be 400.
+        else
+        volume_signal=[];
+        length_img=[];
+        end
+        if length_img<400
+            scf_data=data_scf_vs_sbf; % here maybe ICE_scf to reduce noise
+        else
+            % IMRT or EDW
+            current_file=current_file_all(8); %get 20th image to check if that belongs to scf or breast image
+            empty_current_file=isempty(current_file.name);
+            if empty_current_file==1
+            length_file_all=length(current_file_all);
+            current_file=current_file_all(round(length_file_all/2,0));
+            end
+            file_path=strcat(current_file_path,'\',current_file.name);
+            %% REF: load image set %%
+            %field
+            im = IALML.VMSImageHandler;
+            im.Read(file_path);
+            data = double(im.Data);
+            %figure;imshow(data,[])
+            %% Identify SCF, IMRT and EDW field by using ref images %% 
+
+            scf_value=1;
+            [data_scf_vs_sbf,scf_pcut,scf_ref1] = ICE(data,scf_value);
+            scf_value=[];
+
+            % calc volume of signal
+            [row,~]=size(data_scf_vs_sbf);
+            counter=0;
+            count_row_num=[];
+            for i=1:row 
+               sum_col=sum(data_scf_vs_sbf(i,:));
+               if sum_col>1
+                  counter=1+counter;
+                  count_row_num(counter,1)=i;
+                  num_nonzero_vec=data_scf_vs_sbf(i,:);
+                  num_nonzero_vec(num_nonzero_vec==0)=[];
+                  length_num_nonzero=length(num_nonzero_vec);
+                  count_row_num(counter,2)=length_num_nonzero;
+               end
+            end
+            empty_count_row_num=isempty(count_row_num);
+            volume_signal=[];
+            length_img=[];
+            if empty_count_row_num==0
+            volume_signal=sum(count_row_num(:,2));%indication of open field or not
+            length_img=length(count_row_num(:,1)); % standard breast fields are about 700 rows and SCF are about 200. Treshold can be 400.
+            else
+            volume_signal=[];
+            length_img=[];
+            end
+
+            if volume_signal>150000 % if higher, then EDW 
+            scf_data=[];
+            imrt=[];
+            ref_file_field1=current_file;
+            filepath=file_path;
+            complete_path_field=filepath;%strcat(filepath,ref_file_field1);
+            parts = strsplit(complete_path_field, '\');
+            parentfileparts = parts(1:end-1);
+            filepath_field1=strjoin(parentfileparts, '\');
+            save(re_image_name,'complete_path_field');
+            currentFolder = cd;
+            data_name_path=strcat(currentFolder,'\',re_image_name);
+            destinationfile=strcat(analysis_file,'\',re_image_name);
+            statusmovefile=movefile(data_name_path,destinationfile);
+            
+            save(image_imrt,'imrt');
+            currentFolder = cd;
+            data_name_path=strcat(currentFolder,'\',image_imrt);
+            destinationfile=strcat(analysis_file,'\',image_imrt);
+            statusmovefile=movefile(data_name_path,destinationfile);
+            else
+            scf_data=[];
+            imrt=1; % this field is imrt
+            show_str=strcat('field 00',num2str(count_file-1),': get ref img' )
+            [ref_file_field1,filepath]= uigetfile(folder_name);
+            clc
+            complete_path_field=strcat(filepath,ref_file_field1);
+            parts = strsplit(complete_path_field, '\');
+            parentfileparts = parts(1:end-1);
+            filepath_field1=strjoin(parentfileparts, '\');
+            save(re_image_name,'complete_path_field');
+            currentFolder = cd;
+            data_name_path=strcat(currentFolder,'\',re_image_name);
+            destinationfile=strcat(analysis_file,'\',re_image_name);
+            statusmovefile=movefile(data_name_path,destinationfile);
+            
+            save(image_imrt,'imrt');
+            currentFolder = cd;
+            data_name_path=strcat(currentFolder,'\',image_imrt);
+            destinationfile=strcat(analysis_file,'\',image_imrt);
+            statusmovefile=movefile(data_name_path,destinationfile);
+            end            
+            
+        end
+%         promt = 'Reference field: Were Chestwall (primary) and Breast tissue (secondary) completely visible (not covered by Yaw or MLC leaves)? Press [ENTER] for "YES" (both are visible) and [n]&[ENTER] for "NO" (Chestwall is visible but Breast tissue is covered (happens a lot for IMRT-fields))  '; % very important (1) image chestwall needs to be seen and breast tissue can be covered and (2) image breast tissue is visible. For SCF chestwall is the only bone that can be seen.  
+%         input_promt=input(promt,'s');
+%         str_y=strfind(input_promt,'n'); % 1 for '[n]&[ENTER]' and 0 for '[ENTER]'
+%         if str_y==1
+%             show_str=strcat('field 00',num2str(count_file-1),': 2.ref to get Breast Tissue')
+%             [ref_file_field1,filepath]= uigetfile(folder_name);
+%             clc
+%             complete_path_field2=strcat(filepath,ref_file_field1);
+%             save(re_image_name2,'complete_path_field2');
+%             currentFolder = pwd;
+%             data_name_path=strcat(currentFolder,'\',re_image_name2);
+%             destinationfile=strcat(analysis_file,'\',re_image_name2);
+%             statusmovefile=movefile(data_name_path,destinationfile);
+%             im = IALML.VMSImageHandler;
+%             im.Read(complete_path_field2);
+%             data_breast_ref = double(im.Data);
+%         else
+%             data_breast_ref=[];
+%         end
+        
+    end      
+    
+end
+
+%% Input %%
+
+% image background %
+background=16000;
+
+% intensity range for breast %
+
+breast_max1=15000; min_range_breast1=14950; max_range_breast1=15050; %for field1
+breast_max=14000; min_range_breast=13050; max_range_breast=14050; %for field234
+
+% name of SCF file in Analysis folder
+scf_folder_name='SCF';
+
+% fps
+fps=7.5;%9.5;%7.5;%9.0; % frame rate per sec of iTools, can be different at some point. for chestwall and breast
+fps_scf=7.8;%9.5;%7.8;%9.5; % frame rate per sec of iTools, can be different at some point. for scf fields
+
+% %% REF: load image set %%
+% 
+% 
+% %field
+% im = IALML.VMSImageHandler;
+% im.Read(complete_path_field);
+% data = double(im.Data);
+% %figure;imshow(data,[])
+% % 
+% %% Identify SCF vs standard breast field by using ref images %% 
+% scf_value=1;
+% [data_scf_vs_sbf,scf_pcut,scf_ref1] = ICE(data,scf_value);
+% scf_value=[];
+% [row,~]=size(data_scf_vs_sbf);
+% counter=0;
+% count_row_num=[];
+% for i=1:row
+%    sum_col=sum(data_scf_vs_sbf(i,:));
+%    if sum_col>1
+%       counter=1+counter;
+%       count_row_num(counter,:)=i; 
+%    end
+% end
+% length_img=length(count_row_num); % standard breast fields are about 700 rows and SCF are about 200. Treshold can be 400.
+% if length_img<400
+%     scf_data=data_scf_vs_sbf; % here maybe ICE_scf to reduce noise
+% else
+%     scf_data=[];
+%     
+% end
+
+
+%% REF: get max intensity range for chestwall %%
+
+%[row,~]=size(data);
+% %field%
+start=200;%200
+inc=1;
+inc_end=600;%600
+max_ind=[];
+
+
+scf_value=0; % no scf field
+data_ice = ICE(data,scf_value);
+scf_value=[];
+loop_counter=0;
+for i=start:inc:inc_end
+    loop_counter=loop_counter+1;            
+    [Max_peak,peak_ind,~,~] = extrema(data_ice(i,:));
+    isnumber=isempty(Max_peak);
+    if isnumber==1
+    else
+    length_Max_peak=length(Max_peak);
+    if length_Max_peak>1 % here get 2nd peak if its the chestwall one
+        %check if max peak is closer to field edge than second one
+        %closer means it needs to be within 10 ish. chekc out
+        %profile from left to right to determine ind to edge. then
+        %make the decision. if 1st max is outide of 10 then all
+        %good, else investigate second one.
+        no_zero=data_ice(i,:);
+        no_zero(no_zero==0)=[];
+        max_edge_ind=min(find(no_zero==Max_peak(1,1)));
+        no_zero_minten=(length(no_zero))-10;
+        if max_edge_ind > 10 && max_edge_ind<no_zero_minten
+        Max_peak=Max_peak(1,1);
+        max_pos_prev=peak_ind(1,1);
+        else
+        %max_sec_edge_ind=find(no_zero==Max_peak(1,2));
+        Max_peak=Max_peak(1,2);
+        max_pos_prev=peak_ind(1,2);
+        end
+        max_field(loop_counter,:)=Max_peak;
+        max_pos=max_pos_prev;
+    else
+        max_field(loop_counter,:)=max(Max_peak);
+        max_pos=data_ice(i,:);    
+    end
+    max_pos_mean=round(mean(max_pos));
+    max_ind(loop_counter,:)=max_pos_mean;
+    end
+end
+
+max_field(max_field==0)=[];
+range_min_field=min(max_field);
+range_max_field=max(max_field);
+ %% REF: to correct chestwall contour outliners %%
+
+% delete big outliers or big jumbs
+cut_ind=[];
+loop_count=0;
+length_dat=length(max_ind);
+for ii=1:length_dat
+    if ii>1
+        val=max_ind(ii);
+        val_prev=max_ind(ii-1);    
+        diff_val=abs(val_prev-val);
+        nan_diff_val=isnan(diff_val);
+        loop_count=loop_count+1;
+        save_diff_val(:,loop_count)=diff_val;
+        if diff_val > 9 %%%%% needs to be tested 
+            cut_ind(:,loop_count)=1;
+        end
+    end
+end
+
+empty_cut_ind=isempty(cut_ind);
+if empty_cut_ind==0
+    range_cut=find(cut_ind==1);
+    if range_cut==1
+    else
+        max_cut=max(range_cut);
+        min_cut=min(range_cut);
+        diff_cut=abs(max_cut-min_cut);
+        no_nan_chest_max_pos=max_ind;
+        no_nan_chest_max_pos(isnan(no_nan_chest_max_pos))=[];
+        length_no_nan_chest_max_pos=length(no_nan_chest_max_pos);
+        length_diff_no_nan=length_no_nan_chest_max_pos-diff_cut;
+        perc_diff=length_diff_no_nan/length_no_nan_chest_max_pos;
+        if length_diff_no_nan > 0 && perc_diff > 0.5 %apply cut
+            cut_vec=max_ind;
+            cut_vec(min_cut:end)=NaN; % cut the end of seg, if start cut is at the beginning of seg then it'll use min-max-range
+            cut_vec(isnan(cut_vec))=[];
+            length_cut_vec=length(cut_vec);
+            perc_diff=length_cut_vec/length_no_nan_chest_max_pos;
+            if perc_diff > 0.5 %apply cut
+                max_ind(min_cut:end)=NaN;% cut the end of seg, if start cut is at the beginning of seg then it'll use min-max-range
+            else
+                max_ind(min_cut:max_cut)=NaN; 
+            end
+        end
+    end 
+end 
+
+%% Chestwall and Breast Segmentation of image frames %%
+
+
+% look for dcm in analysis file - ref image
+folder_name_analysis=strcat(analysis_file);
+folder=dir(folder_name_analysis);
+folder(1:2)=[];
+l_file=length(folder);
+
+for count_file2=1:l_file
+                         
+    find_dcm=strfind(folder(count_file2).name,'.dcm');
+    if find_dcm > 0 
+       filename_exists=folder(count_file2).name;
+       break
+    else 
+        filename_exists=[];
+    end
+                   
+end
+
+filename_empty=isempty(filename_exists);
+if filename_empty==1 % if file is empty
+promt = 'Please save one MV Image of actual fraction into Analysis folder and press ENTER if you wish to continue.'; % Check if 1 MV image is saved in Analysis folder for further analysis.
+filename_exists = input(promt);
+end
+
+% load image, image enhancement, segmentation and save images
+%field%
+parts = strsplit(filepath_field1, '\');
+parentfileparts = parts(1:end-1);
+parentfolder=strjoin(parentfileparts, '\');% just get parent folder
+mainfolder=dir(parentfolder);
+% it has to go through folders and should not assess the folder for field1
+mainfolder(1:2)=[]; % first two char files are without any modality information, can be deleted
+l_folder=length(mainfolder); % number of files in main folder
+%field2_naming='field002'; % all folders should have same length of names:i.e. analysis, field001,... to be able to do an if comparision
+
+% go through each file and create image
+name_of_mainfolder=mainfolder(count_file).name;
+
+
+filename=strcat(parentfolder,'\',name_of_mainfolder);% all file names within mainfolder
+mainfile=dir(filename);
+mainfile(1:2)=[]; % first two char files can be deleted, cause they dont contain any modality information 
+l_files=length(mainfile); % number of files in main folder
+
+destinationfile=strcat(filename,'\','images_lines'); % create destination folder, where sequence will be stored 
+status = mkdir(destinationfile);
+foldercontent = dir(destinationfile); 
+number_of_files=numel(foldercontent);
+empty_folder=0;
+
+if number_of_files < 3
+
+    empty_folder=999;
+
+elseif number_of_files < 4
+
+    find_thumb=strfind(foldercontent(3,1).name,'Thumbs'); % just want to make sure image folder is empty
+
+    if find_thumb == 1
+        empty_folder=999;
+    end
+
+end
+
+if empty_folder == 999 % saves processing time if folder contains files with lines    
+loop_counter=0;
+loop_data=0;
+size_signal_chestw=[];
+safe_row_chestw=[];
+safe_col_chestw=[];
+ones_high_noise_chestw=[];
+    for count_files=1:l_files%count_files=51%%%%%- %test2 6 org, 50 with noise
+        close all
+        name_of_subfile=mainfile(count_files).name;
+        image_path=strcat(filename,'\',name_of_subfile);
+        find_thumb=strfind(image_path,'Thumbs'); % just want to make sure image folder is empty
+        if find_thumb > 0
+        else
+            im = IALML.VMSImageHandler;
+            %result=isfile(image_path);
+            if  exist(image_path,'file')==7 % 7 is the indicator if the path contains a folder, 3 will be the indicator if file exists
+            else
+                empty_scf_data=isempty(scf_data);
+                if empty_scf_data == 1
+                im.Read(image_path);
+                data = double(im.Data);
+                scf_value=0; % no scf field
+                [data2,value_pcut,ref_val_1]=ICE(data,scf_value);
+                %breast_min_range=min_range_breast; breast_max_range=max_range_breast; 
+                chest_min_range=range_min_field;
+                chest_max_range=range_max_field;
+                chestwall_ind=max_ind;        
+                else
+                scf_data=[];    
+                scf_value=1;% scf field 
+                im.Read(image_path);
+                data = double(im.Data);
+                [scf_data,value_pcut,ref_val_1]=ICE(data,scf_value);
+                breast_min_range=[]; 
+                breast_max_range=[]; 
+                chest_min_range=[];
+                chest_max_range=[];
+                chestwall_ind=[];
+                data2=[];
+                imrt=[];
+                end
+                loop_data=loop_data+1;
+                [ones_high_noise_chestw,size_signal_chestw,safe_row_chestw,safe_col_chestw,current_scf_length_chestwall,current_scf_chestwall,chestwall_max_pos,length_row_chest,colpos_breast,length_row_breast,profile_breast_or_chest]=SEG_v4(ones_high_noise_chestw,data2,chest_min_range,chest_max_range,value_pcut,ref_val_1,scf_data,chestwall_ind,loop_data,size_signal_chestw,safe_row_chestw,safe_col_chestw,imrt);
+                
+                empty_scf_data=isempty(scf_data);
+                if empty_scf_data == 1  
+                    
+                    loop_counter=1+loop_counter;
+                    profile_breast_or_chest_first(loop_counter,:)=profile_breast_or_chest;
+                    
+                    empt_length_row_breast=isempty(length_row_breast);
+                    empt_chestwall_max_pos=isempty(chestwall_max_pos);
+                    empt_length_row_chest=isempty(length_row_chest);
+                    empt_colpos_breast=isempty(colpos_breast);
+                    
+                    if empt_colpos_breast == 1
+                        colpos_breast=NaN(768,1);
+                    end
+                    if empt_chestwall_max_pos == 1
+                        chestwall_max_pos =NaN(768,1);
+                    end
+                    if empt_length_row_chest == 1
+                        length_row_chest=NaN(768,1);
+                    end
+                    if empt_length_row_breast == 1
+                        length_row_breast=NaN(768,1);
+                    end
+                    
+                    matrix_colpos_breast(:,loop_counter)=colpos_breast;
+                    matrix_length_row_breast(:,loop_counter)=length_row_breast;
+                    matrix_chestwall_max_pos(:,loop_counter)=chestwall_max_pos;
+                    matrix_length_row_chest(:,loop_counter)=length_row_chest;
+                    
+                else
+                    loop_counter=1+loop_counter;
+                    
+                    empt_current_scf_chestwall=isempty(current_scf_chestwall);
+                    empt_current_scf_length_chestwall=isempty(current_scf_length_chestwall);
+                    
+                    if empt_current_scf_chestwall == 1
+                        current_scf_chestwall=NaN(row,1);
+                    end
+                    if empt_current_scf_length_chestwall == 1
+                        current_scf_length_chestwall =NaN(row,1);
+                    end
+
+                    matrix_current_scf_chestwall(:,loop_counter)=current_scf_chestwall;
+                    matrix_current_scf_length_chestwall(:,loop_counter)=current_scf_length_chestwall;
+                    
+                end
+               
+                
+            end
+        end
+
+    end
+    
+    empty_scf_data=isempty(scf_data);
+    if empty_scf_data == 1
+    
+    matrix_current_scf_chestwall=[];
+    matrix_current_scf_length_chestwall=[];
+    %size_signal_chestw
+    %safe_row_chestw
+    %safe_col_chestw    
+ 
+    else
+    matrix_colpos_breast=[];
+    matrix_length_row_breast=[];
+    matrix_chestwall_max_pos=[];
+    matrix_length_row_chest=[];
+    end
+       
+    [min_length_data_scf,current_chestwall,current_length_chestwall,current_scf_length_chestwall,current_scf_chestwall,current_breast,current_length_breast] = REF_SEG(matrix_current_scf_chestwall,matrix_current_scf_length_chestwall,matrix_colpos_breast,matrix_length_row_breast,matrix_chestwall_max_pos,matrix_length_row_chest,scf_data,size_signal_chestw,safe_row_chestw,safe_col_chestw,chestwall_ind,ones_high_noise_chestw);
+    
+    if empty_scf_data == 1
+    [row_chest_max,col_chest_max_pos]=size(current_chestwall); 
+    
+    else
+    [row_chest_max,col_chest_max_pos]=size(matrix_current_scf_chestwall);    
+    end
+    
+    for ii=1:col_chest_max_pos
+        
+        empty_scf_data=isempty(scf_data);
+        if empty_scf_data == 1 
+            name_of_subfile=mainfile(ii).name;
+            image_path=strcat(filename,'\',name_of_subfile);
+            find_thumb=strfind(image_path,'Thumbs'); % just want to make sure image folder is empty
+            if find_thumb > 0
+            else
+                im = IALML.VMSImageHandler;
+                %result=isfile(image_path);
+                if  exist(image_path,'file')==7 % 7 is the indicator if the path contains a folder, 3 will be the indicator if file exists
+                else
+                    
+                    empt_length_row_chest=isempty(current_length_chestwall);
+                    empt_chestwall_max_pos=isempty(current_chestwall);
+                    empt_length_row_breast=isempty(current_length_breast);
+                    empt_colpos_breast=isempty(current_breast);
+                    
+                    if empt_colpos_breast == 1
+                        current_breast=NaN(row_chest_max,col_chest_max_pos);
+                    end
+                    if empt_chestwall_max_pos == 1
+                        current_chestwall=NaN(row_chest_max,col_chest_max_pos);
+                    end
+                    if empt_length_row_chest == 1
+                        current_length_chestwall=NaN(row_chest_max,col_chest_max_pos);
+                    end
+                    if empt_length_row_breast == 1
+                        current_length_breast=NaN(row_chest_max,col_chest_max_pos);
+                    end                   
+                    
+                    im.Read(image_path);
+                    data = double(im.Data);
+                    data(data == 0) = background;
+                    [row,~]=size(data);
+                    imshow(data,[]);
+                    line(current_chestwall(:,ii),current_length_chestwall(:,ii))
+                    line(current_breast(:,ii),current_length_breast(:,ii),'Color','r')
+                    set(gcf, 'Visible', 'off');
+                    data_name=strcat('lines_chest_breast_frame',num2str(ii),'.jpg');
+                    %data_fig = uint8(255 * mat2gray(fig));
+                    %imwrite(data_fig,data_name);
+                    saveas(gcf,data_name,'jpg')
+                    currentFolder = cd;
+                    data_name_path=strcat(currentFolder,'\',data_name);
+                    statusmovefile=movefile(data_name_path,destinationfile);
+                   
+                end
+            end
+        else
+            name_of_subfile=mainfile(ii).name;
+            image_path=strcat(filename,'\',name_of_subfile);
+            find_thumb=strfind(image_path,'Thumbs'); % just want to make sure image folder is empty
+            if find_thumb > 0
+            else
+                im = IALML.VMSImageHandler;
+                %result=isfile(image_path);
+                if  exist(image_path,'file')==7 % 7 is the indicator if the path contains a folder, 3 will be the indicator if file exists
+                else
+                    
+                    empt_current_scf_chestwall=isempty(current_scf_chestwall);
+                    empt_current_scf_length_chestwall=isempty(current_scf_length_chestwall);
+                    
+                    if empt_current_scf_chestwall == 1
+                        current_scf_chestwall=NaN(row_chest_max,col_chest_max_pos);
+                    end
+                    if empt_current_scf_length_chestwall == 1
+                        current_scf_length_chestwall =NaN(row_chest_max,col_chest_max_pos);
+                    end
+                    
+                    
+                    im.Read(image_path);
+                    data = double(im.Data);
+                    data_rot=imrotate(data,90);
+                    data_rot(data_rot == 0) = background;
+                    [row,~]=size(data_rot);
+                    imshow(data_rot,[]);
+                    line(current_scf_chestwall(:,ii),current_scf_length_chestwall(:,ii))
+                    set(gcf, 'Visible', 'off');
+                    data_name=strcat('lines_scf_frame',num2str(ii),'.jpg');
+                    %data_fig = uint8(255 * mat2gray(fig));
+                    %imwrite(data_fig,data_name);
+                    saveas(gcf,data_name,'jpg')
+                    currentFolder = cd;
+                    data_name_path=strcat(currentFolder,'\',data_name);
+                    statusmovefile=movefile(data_name_path,destinationfile);
+                    
+                end
+            end
+            
+            
+        end
+        
+        destinationfile_plot=strcat(filename,'\','plot_lines'); % create destination folder, where sequence will be stored
+        status = mkdir(destinationfile_plot);
+        foldercontent = dir(destinationfile_plot);
+        number_of_files=numel(foldercontent);
+        
+        if number_of_files < 3
+            
+            empty_folder=999;
+            
+        elseif number_of_files < 4
+            
+            find_thumb=strfind(foldercontent(3,1).name,'Thumbs'); % just want to make sure image folder is empty
+            
+            if find_thumb == 1
+                empty_folder=999;
+            end
+        else
+            empty_folder=1;
+            
+        end
+        
+        if empty_folder == 999 % saves processing time if folder contains files with lines
+            empty_scf_data=isempty(scf_data);
+            if empty_scf_data == 1
+                plot(current_breast);
+                data_name=strcat('plot_lines_col_breast','.jpg');
+                %data_fig = uint8(255 * mat2gray(fig));
+                %imwrite(fig,data_name);
+                set(gcf, 'Visible', 'off');
+                saveas(gcf,data_name,'jpg');
+                currentFolder = cd;
+                data_name_path_plot=strcat(currentFolder,'\',data_name);
+                statusmovefile=movefile(data_name_path_plot,destinationfile_plot);
+                
+                plot(current_length_breast);
+                data_name=strcat('plot_lines_length_row_breast','.jpg');
+                %data_fig = uint8(255 * mat2gray(fig));
+                %imwrite(fig,data_name);
+                set(gcf, 'Visible', 'off');
+                saveas(gcf,data_name,'jpg');
+                currentFolder = cd;
+                data_name_path_plot=strcat(currentFolder,'\',data_name);
+                statusmovefile=movefile(data_name_path_plot,destinationfile_plot);
+                
+                plot(current_chestwall);
+                data_name=strcat('plot_lines_chestwall_pos','.jpg');
+                %data_fig = uint8(255 * mat2gray(fig));
+                %imwrite(fig,data_name);
+                set(gcf, 'Visible', 'off');
+                saveas(gcf,data_name,'jpg')
+                currentFolder = cd;
+                data_name_path_plot=strcat(currentFolder,'\',data_name);
+                statusmovefile=movefile(data_name_path_plot,destinationfile_plot);
+                
+                plot(current_length_chestwall);
+                data_name=strcat('plot_lines_length_row_chestwall','.jpg');
+                %data_fig = uint8(255 * mat2gray(fig));
+                %imwrite(fig,data_name);
+                set(gcf, 'Visible', 'off');
+                saveas(gcf,data_name,'jpg')
+                currentFolder = cd;
+                data_name_path_plot=strcat(currentFolder,'\',data_name);
+                statusmovefile=movefile(data_name_path_plot,destinationfile_plot);
+            else
+                plot(current_scf_chestwall);
+                data_name=strcat('plot_lines_scf','.jpg');
+                %data_fig = uint8(255 * mat2gray(fig));
+                %imwrite(fig,data_name);
+                set(gcf, 'Visible', 'off');
+                saveas(gcf,data_name,'jpg');
+                currentFolder = cd;
+                data_name_path_plot=strcat(currentFolder,'\',data_name);
+                statusmovefile=movefile(data_name_path_plot,destinationfile_plot);
+                
+                plot(current_scf_length_chestwall);
+                data_name=strcat('plot_lines_length_scf','.jpg');
+                %data_fig = uint8(255 * mat2gray(fig));
+                %imwrite(fig,data_name);
+                set(gcf, 'Visible', 'off');
+                saveas(gcf,data_name,'jpg');
+                currentFolder = cd;
+                data_name_path_plot=strcat(currentFolder,'\',data_name);
+                statusmovefile=movefile(data_name_path_plot,destinationfile_plot);
+            end
+        end
+    end
+
+    %% Analysis %%
+
+   
+    empty_scf_data=isempty(scf_data);
+        if empty_scf_data == 1
+            %chestwall and breast analysis %
+            scf=0;
+            %matrix_chestwall_max_pos=matrix_chestwall_max_pos;
+            matrix_breast_pos=current_breast;
+            analysis_path=analysis_file;
+            [shift_mm,sum_each_frame_int,shift_mm_breast] = Analysis_SEG(current_chestwall,analysis_path,scf,matrix_breast_pos,min_length_data_scf);
+            foldername_field = strcat(name_of_mainfolder,'');
+            
+            % txt %
+            filename=strcat(foldername_field,'_','chestw_shift_in_iso_and_in_mm.txt');
+            save(filename,'shift_mm','-ascii')
+            current_path=cd;
+            sourcefile=strcat(current_path,'\',filename);
+            statusmovefile=movefile(sourcefile,analysis_file);
+            
+            filename=strcat(foldername_field,'_','breast_shift_in_iso_and_in_mm.txt');
+            save(filename,'shift_mm_breast','-ascii')
+            current_path=cd;
+            sourcefile=strcat(current_path,'\',filename);
+            statusmovefile=movefile(sourcefile,analysis_file);
+            
+           % plot and save %
+           
+
+            length_sum_each_frame_int=length(sum_each_frame_int);
+            total_fr_length=length_sum_each_frame_int/fps;        
+            interp_sum_frames=0:(total_fr_length/length_sum_each_frame_int):total_fr_length;
+            short_interp_sum_frames=interp_sum_frames(1:end-1);
+            
+            plot(short_interp_sum_frames,sum_each_frame_int);
+            empty_profile_breast_or_chest_first=isempty(profile_breast_or_chest_first);
+            if  empty_profile_breast_or_chest_first == 0
+            profile_breast_or_chest_first(isnan(profile_breast_or_chest_first))=[];
+            length_profile_breast_or_chest_first=length(profile_breast_or_chest_first);
+            num_length_profile_breast_or_chest_first=(sum(profile_breast_or_chest_first))/length_profile_breast_or_chest_first;
+                    if num_length_profile_breast_or_chest_first>0.5 % max is 1 - 0.5 to 1 majority of ones and it means breast comes first and bone follows by looking at the image, otherwise vise versa.
+                    % 1: first breast tissue then bone & 0: first bone then breast tissue         
+                        breast_or_bone_first_name='';%' breast-bone (image:left to right)';
+                        legend_name='+/- anterior/posterior motion'; % positive shift is inhale
+                        
+                    else
+                        breast_or_bone_first_name='';%' bone-breast (image:left to right)'; 
+                        legend_name='-/+ anterior/posterior motion'; % negative shift is inhale
+                    end
+                    
+            else
+                breast_or_bone_first_name=' unknown image direction'; 
+                legend_name='unknown if neg or pos shift considered to inhale';
+ 
+            end
+            
+            filename=strcat(foldername_field,breast_or_bone_first_name);
+            title(filename);
+            ylabel('shift in isocenter [mm]');
+            xlabel('time of beam on [sec]');%(1st frame is baseline w shift 0 mm)
+            legend(legend_name,'Location','southoutside');
+            data_name=strcat(foldername_field,' plot_chestw_breast_motion_all_frames','.jpg');
+            %data_fig = uint8(255 * mat2gray(fig));
+            %imwrite(fig,data_name);
+            set(gcf, 'Visible', 'off');
+            saveas(gcf,data_name,'jpg');
+            currentFolder = cd;
+            sourcefile=strcat(current_path,'\',data_name);
+            statusmovefile=movefile(sourcefile,analysis_file);
+
+            % save data to txt for further analysis %
+
+            filename=strcat(foldername_field,'_matrix_chestwall');
+            save(filename,'matrix_chestwall_max_pos','-ascii')
+            current_path=cd;
+            sourcefile=strcat(current_path,'\',filename);
+            statusmovefile=movefile(sourcefile,analysis_file);
+            
+            filename=strcat(foldername_field,'_matrix_breast');
+            save(filename,'matrix_colpos_breast','-ascii')
+            current_path=cd;
+            sourcefile=strcat(current_path,'\',filename);
+            statusmovefile=movefile(sourcefile,analysis_file);
+            
+            plot_each_frame=[short_interp_sum_frames;sum_each_frame_int];
+            filename=strcat(foldername_field,'_plot_all_frames');
+            save(filename,'plot_each_frame','-ascii')
+            current_path=cd;
+            sourcefile=strcat(current_path,'\',filename);
+            statusmovefile=movefile(sourcefile,analysis_file);
+            
+            % empty vectors
+
+            matrix_colpos_breast=[];
+            matrix_length_row_breast=[];
+            matrix_chestwall_max_pos=[];
+            matrix_length_row_chest=[];
+            current_chestwall=[];
+            current_length_chestwall=[];
+            current_breast=[];
+            current_length_breast=[];
+            
+        else
+            scf=1;
+            matrix_chestwall_max_pos=current_scf_chestwall;
+            matrix_breast_pos=[];
+            analysis_path=strcat(analysis_file,'\',scf_folder_name);
+            [shift_mm,sum_each_frame_int] = Analysis_SEG(matrix_chestwall_max_pos,analysis_path,scf,matrix_breast_pos,min_length_data_scf);
+
+            foldername_field = name_of_mainfolder;
+            filename=strcat(foldername_field,'_','scf_chestwall','_','shift_in_iso_and_in_mm.txt');
+
+            % txt %
+            save(filename,'shift_mm','-ascii')
+            current_path=cd;
+            sourcefile=strcat(current_path,'\',filename);
+            statusmovefile=movefile(sourcefile,analysis_file);
+            
+            % plot and save %
+
+            length_sum_each_frame_int=length(sum_each_frame_int);
+            total_fr_length=length_sum_each_frame_int/fps_scf;        
+            interp_sum_frames=0:(total_fr_length/length_sum_each_frame_int):total_fr_length;
+            short_interp_sum_frames=interp_sum_frames(1:end-1);
+
+       
+            plot(short_interp_sum_frames,sum_each_frame_int);
+            filename=strcat(foldername_field,' scf chestwall');
+            title(filename);
+            ylabel('shift in isocenter [mm]');
+            xlabel('time of beam on [sec] ');%(1st frame is baseline w shift 0 mm)
+            data_name=strcat(foldername_field,' plot_scf_motion_all_frames','.jpg');
+            %data_fig = uint8(255 * mat2gray(fig));
+            %imwrite(fig,data_name);
+            set(gcf, 'Visible', 'off');
+            saveas(gcf,data_name,'jpg');
+            currentFolder = cd;
+            sourcefile=strcat(current_path,'\',data_name);
+            statusmovefile=movefile(sourcefile,analysis_file);
+
+            % save data to txt for further analysis %
+
+            filename=strcat(foldername_field,'_matrix_scf_chestwall');
+            save(filename,'matrix_current_scf_chestwall','-ascii')
+            current_path=cd;
+            sourcefile=strcat(current_path,'\',filename);
+            statusmovefile=movefile(sourcefile,analysis_file);
+            
+            plot_each_frame=[short_interp_sum_frames;sum_each_frame_int];
+            filename=strcat(foldername_field,'_plot_all_frames_scf');
+            save(filename,'plot_each_frame','-ascii')
+            current_path=cd;
+            sourcefile=strcat(current_path,'\',filename);
+            statusmovefile=movefile(sourcefile,analysis_file);% this txt.file doesnt get moved, even though coding seems to be right. maybe permission of access failure. Dont know how that can be solved.
+            
+            % empty vectors
+            current_scf_chestwall=[];
+            current_scf_length_chestwall=[];
+            matrix_chestwall_max_pos=[];
+            matrix_current_scf_chestwall=[];
+            matrix_current_scf_length_chestwall=[];
+        end
+    
+
+end
+
+
+end
+
+end
+
+%% time of process %%
+t=toc; % time is seconds
+t2=round(t);
+time=datestr(datenum(0,0,0,0,0,t2),'HH:MM:SS');% hours:minutes:seconds
