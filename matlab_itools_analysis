@@ -1,0 +1,483 @@
+%clear
+%close all
+clc
+tic;
+%% load image set %%
+startupIALML
+filename='P:\12 Staff\Felix\iTools_BraveHeart_measurement\Ooi_Grace_300817_DIBH_TS3\DIBH\CH0\field1_20170830105941\Frame01627.hnd';%20170830110900\Frame06748.hnd';%20170830110542\Frame04895.hnd';%20170830105941\Frame01626.hnd';%20170830110926\Frame07050.hnd';%20170830110926\Frame07026.hnd'; %20170830110926\Frame07082.hnd';%20170830110542\Frame04890.hnd';
+%filename='P:\12 Staff\Felix\iTools_BraveHeart_measurement\Levy_Anne_030817_DIBH_imaging_last3fields_1249996\20170803104833\Frame05560.hnd';%20170803104833\Frame05553.hnd';%20170803104833\Frame05540.hnd';%20170803104833\Frame05611.hnd';
+
+%fid = fopen(filename,'r');
+im = IALML.VMSImageHandler;
+im.Read(filename);
+data = double(im.Data);
+%figure;imshow(data,[])
+
+
+
+%% image contrast enhancement %%
+data1=data;
+%data2 = uint8(255 * mat2gray(data1));
+%figure;imshow(enhanced,[]);
+data3 = double(data);
+%figure;imshow(data3,[]);
+
+%figure;plot(data3(330,:));
+%[row,col]=size(data1);
+data3(data3>16000)=0;
+%%% get rid of FOV frame which containts high pixel values and set to background
+fftImage = fft2(data3);
+% centeredFFTImage = log(fftshift(real(fftImage)));
+%figure;imshow(centeredFFTImage, []);
+% Zero out the corners
+window = 10;
+fftImage(1:window, 1:window) = 0;
+fftImage(end-window:end, 1:window) = 0;
+fftImage(1:window, end-window:end) = 0;
+fftImage(end-window:end, end-window:end) = 0;
+
+% Display the filtered FFT image.
+% Shift it and take log so we can see it easier.
+% centeredFFTImage = log(fftshift(real(fftImage)));
+%figure;imshow(centeredFFTImage, []);
+% m = abs(fftImage); 
+% f = (0:length(fftImage)-1)*50/length(fftImage);
+%figure;plot(f,m)
+
+% Inverse FFT to get high pass filtered image.
+output = ifft2(fftImage);
+real_output=real(output);
+%figure;imshow(real_output, []);
+
+[row,col]=size(real_output);
+pos_save=zeros(row,col);
+for i=1:row
+    pos_zero_positive=find(real_output(i,:)>2000);
+    pos_zero_negative=find(real_output(i,:)<-2000);
+    value_empty_positive = isempty(pos_zero_positive);
+    value_empty_negative = isempty(pos_zero_negative);         
+    if value_empty_positive == 0
+         data3(i,pos_zero_positive)=0;    
+    end
+    if value_empty_negative == 0
+         data3(i,pos_zero_negative)=0;    
+    end
+end
+%figure;imshow(data3,[]);
+
+%%%% get rid of periodic noise
+ lowpass = 15;
+ %highpass = 1;
+ 
+ data3_filt=data3;
+ data3_filt(data3_filt == 0) = NaN;
+ Idm = nanmedian(data3_filt, lowpass);
+ 
+ Idm2 =  medfilt2(data3, [lowpass lowpass]);
+ %imshow(Idm);
+ 
+ %Ide = data3 - medfilt2(data3, [highpass
+ %highpass]);
+ %imshow(Ide);
+ 
+ %finalFilteredGrayImage = Idm; %+ Ide;
+ %figure;imagesc(Idm); colormap gray;
+ %figure;imshow(Idm,[]);
+ %figure;imshow(Idm2,[]);
+ 
+ data3=Idm2;
+ Idm2(Idm2 == 0) = 16000;
+ %figure;imshow(Idm2,[]);
+ 
+ 
+%%%%%% enhance image contrast
+%  Idm3 = uint8(255 * mat2gray(Idm2));
+%  b = imsharpen(Idm3,'Radius',2,'Amount',1);
+%  figure;imshow(b,[]);
+% % 
+%  Idm3 = uint8(255 * mat2gray(Idm2));
+%  data3_imadjust = imadjust(Idm3);
+%  data3_histeq = histeq(Idm3);
+%  data3_adapthisteq = adapthisteq(Idm3);
+% % 
+%  figure;imshow(data3_imadjust,[]);
+%  figure;imshow(data3_histeq,[]);
+%  figure;imshow(data3_adapthisteq,[]);
+%  
+%  figure;plot(b(120,:));
+%  figure;plot(b(330,:));
+%  figure;plot(b(600,:));
+%  
+%  figure;plot(data3_imadjust(120,:));
+%  figure;plot(data3_imadjust(330,:));
+%  figure;plot(data3_imadjust(600,:));
+% 
+%  figure;plot(data3_histeq(120,:));
+%  figure;plot(data3_histeq(330,:));
+%  figure;plot(data3_histeq(600,:));
+%  
+%  figure;plot(data3_adapthisteq(120,:));
+%  figure;plot(data3_adapthisteq(330,:));
+%  figure;plot(data3_adapthisteq(600,:));
+%  
+
+%% chestwall segmentation: primary segmentation %%
+%figure;imshow(data4,[]);
+% figure;plot(data3(100,:));
+% figure;plot(data3(200,:));
+% figure;plot(data3(300,:));
+% figure;plot(data3(400,:));
+% figure;plot(data3(500,:));
+% figure;plot(data3(600,:));
+
+background=16000;
+
+%data4 = imresize(data3, 0.5);
+%[row_resize,col_resize]=size(data4);
+
+%data4(data4<200)=0;
+%data4(data4>200)=0;
+data4=data3;
+data4(data4 == 0) = background;
+figure;imshow(data4,[]);
+%figure;plot(data4(330,:));
+
+
+min_range_chest=15202;%15600;%15220
+max_range_chest=15500;%15700;%15550
+
+
+[row,~]=size(data3);
+
+% for i=1:row
+%                 
+%     [Max_peak,~,~,~] = extrema(data3(i,:));
+%     [~,col_sort]=size(Max_peak);
+%       
+%                 if col_sort >= 1
+%                    max_save=Max_peak(1,1);
+%                    max_save(max_save<min_range_chest)=0;
+%                    max_save(max_save>max_range_chest)=0;
+%                    if max_save > 0
+%                    chestwall_max(i,:)=Max_peak(1,1);
+%                    max_pos=find(data3(i,:)>=min_range_chest & data3(i,:)<=max_range_chest);
+%                    chestwall_max_pos(i,:)=round(mean(max_pos));
+%                    end
+%                 else
+%                     chestwall_max(i,:)=0;
+%                     chestwall_max_pos(i,:)=0;
+%                 end
+%                
+%                         
+% end
+
+start=100;
+inc=1;
+inc_end=600;
+loop_counter=0;
+chestwall_max_pos=[];% just for iTools... m-file
+
+for i=start:inc:inc_end
+    loop_counter=loop_counter+1;            
+    [Max_peak,~,~,~] = extrema(data3(i,:));
+    max_value=max(Max_peak);
+    if max_value >= min_range_chest 
+        if max_value <= max_range_chest
+           max_field1(loop_counter,:)=max_value;
+           max_pos=find(max_value==data3(i,:));
+           max_pos_mean=round(mean(max_pos));
+           chestwall_max_pos(loop_counter,:)=max_pos_mean;
+        end
+    end
+    
+end
+
+data3(data3 == 0) = background;
+%figure;imshow(data3,[]);
+chestwall_max_empty=isempty(chestwall_max_pos);
+if chestwall_max_empty == 0
+[row_chest_max,~]=size(chestwall_max_pos);
+end_length=row_chest_max+start-1;
+length_row_chest=start:inc:end_length;
+else
+length_row_chest=[];   
+end
+
+
+if chestwall_max_pos < row
+   zero_100=zeros(100,1);
+   zero_chestwall=[zero_100;chestwall_max_pos];
+   zero_chestwall(end:row,:)=0;
+   chestwall_max_pos=zero_chestwall;
+   length_row_chest=1:row;
+end
+
+
+chestwall_max_pos(chestwall_max_pos==0)=NaN;
+
+%% compare ref chestwall_ind with current chestwall_pos %%
+
+ref_chestwall=max_ind234;%max_ind1
+min_length_data=300;% at least 300 out 501 values should be found to segment chestwall correctly
+std_constraint=4;% std <4, shape is close to ref and chestwall can be segmented,> 4 chestwall segmentation is false
+
+%correct start ind of ref chestwall vector
+if ref_chestwall < row
+   zero_100=zeros(100,1);
+   zero_chestwall=[zero_100;ref_chestwall];
+   zero_chestwall(end:row,:)=0;
+   ref_chestwall=zero_chestwall;
+   length_row_chest=1:row;
+end
+
+ref_chestwall(ref_chestwall==0)=NaN;
+
+% figure;plot(chestwall_max_pos,'g');
+% hold on
+% plot(ref_chestwall)
+% hold off
+
+%calculate the distance between each row of two lines and analyze data cloud
+[row,~]=size(ref_chestwall);
+for i=1:row
+    ref_value_chestwall=ref_chestwall(i,:);
+    compare_value_chestwall=chestwall_max_pos(i,:);
+    dist_ref_com_chestw=abs(ref_value_chestwall-compare_value_chestwall);
+    vector_dist_ref_com_chestw(i,:)=dist_ref_com_chestw;
+    
+end
+
+vector_dist_ref_com_chestw(isnan(vector_dist_ref_com_chestw(:,1)),:) = [];
+length_vector_chest=length(vector_dist_ref_com_chestw);
+if length_vector_chest > min_length_data
+std_vec_chestw=std(vector_dist_ref_com_chestw);
+if std_vec_chestw<std_constraint % std <4, shape is close to ref and chestwall can be segmented,> 4 chestwall segmentation is false
+    current_chestwall=chestwall_max_pos;
+end
+end
+
+% shift_ref=(ref_chestwall-100); % just to test if there is a shift
+% 
+% [row,~]=size(ref_chestwall);
+% for i=1:row
+%     ref_value_chestwall=ref_chestwall(i,:);
+%     compare_value_chestwall=shift_ref(i,:);
+%     dist_ref_com_chestw=abs(ref_value_chestwall-compare_value_chestwall);
+%     vector_dist_ref_com_chestw2(i,:)=dist_ref_com_chestw;
+%     
+% end
+% 
+% vector_dist_ref_com_chestw2(isnan(vector_dist_ref_com_chestw2(:,1)),:) = [];
+% length_vector_chest=length(vector_dist_ref_com_chestw2);
+% if length_vector_chest > 300
+% std_test2=std(vector_dist_ref_com_chestw2);
+% else
+%     std_test2=999;
+% end
+
+% figure;plot(shift_ref,'g');
+% hold on
+% plot(ref_chestwall)
+% hold off
+
+max_field1(max_field1==0)=NaN;
+figure;plot(max_field1);
+
+%compare initial image for each row if existing value is there. 
+
+%%
+% data3(data3 == 0) = background;
+% figure;imshow(data3,[]);
+% length_row_chest=1:row;
+
+% line(chestwall_max_pos,length_row_chest)
+% length_row_chest=start:inc:inc_end;
+% line(max_ind,length_row_chest,'Color','r')
+
+
+
+%% outa breast tissue segmentation: secondary segmentation %%
+
+%%%%%%%%% i want to clear unnecessary matrix from workspace %%%%
+
+%figure;plot(data3(120,:));
+%figure;plot(data3(410,:));
+%figure;plot(data3(600,:));
+
+data4=data3;
+[row,~]=size(data4);
+data4(data4 == background)= NaN;
+colpos_breast=zeros(row,1);
+prev_nonnan_value=0;
+breast_intensity_max=14000;
+min_range=13950;
+max_range=14050;
+%breast_max1=14800; min_range_breast1=14750; max_range_breast1=14850; %for field1
+%breast_max234=14000; min_range_breast234=13950; max_range_breast234=14050; %for field234
+for i=start:inc:inc_end
+    
+    validIndices = sum(~isnan(data4(i,:))); 
+    pos_breast=0;
+    
+               if validIndices > 1
+                   
+                   int_values=min(data4(i,:));
+                   min_value_pos=round(mean(find(int_values==data4(i,:))));
+                   data_row=data4(i,:);
+                   nonnan = data_row(~isnan(data_row));
+                   min_nonnan = min(nonnan);
+                   [~,nonnancol]=ind2sub(size(data_row),find(~isnan(data_row))); % get pos of nonnan values
+                   max_nonnancol=max(nonnancol);
+                   min_nonnancol=min(nonnancol);
+                   mean_maxmin_nonnan=round((max_nonnancol+min_nonnancol)/2);
+                   
+                   if min_nonnan<breast_intensity_max
+                       if mean_maxmin_nonnan >= min_value_pos
+                           flip_nonnan=fliplr(nonnan);
+                           flip_nonnancol=fliplr(nonnancol);
+                           for ii=min_range:max_range
+                               nonnan_pos=max(find((ii == flip_nonnan)));
+                               value_empty = isempty(nonnan_pos);
+                               if value_empty == 0
+                                   nonnan_value=flip_nonnan(nonnan_pos);
+                                   if nonnan_value >= breast_intensity_max
+                                    nonnan_correct_pos=max(find((prev_nonnan_value == flip_nonnan)));
+                                    pos_breast=flip_nonnancol(1,nonnan_correct_pos);
+                                    break
+                                   end
+                                   prev_nonnan_value=nonnan_value;
+                               end
+                           end
+                       else
+                           
+                           for ii=min_range:max_range
+                               nonnan_pos=min(find((ii == nonnan)));
+                               value_empty = isempty(nonnan_pos);
+                               if value_empty == 0
+                                   nonnan_value=nonnan(nonnan_pos);
+                                   if nonnan_value >= breast_intensity_max
+                                    nonnan_correct_pos=min(find((prev_nonnan_value == nonnan)));
+                                    pos_breast=nonnancol(1,nonnan_correct_pos);
+                                    break
+                                   end
+                                   prev_nonnan_value=nonnan_value;
+                               end
+                           end
+                       end
+                   
+                   end 
+                  
+               end
+   ind_pos_breast_empty=isempty(pos_breast);
+   if ind_pos_breast_empty == 1
+       pos_breast=1;   
+   end
+   colpos_breast(i,:)=pos_breast;
+                        
+end
+
+%%% to correct breast contour outliners
+
+colpos_breast(colpos_breast==0)=NaN;
+[row,col]=size(colpos_breast);
+stepsize=10; % looking for a range of 10 values, if std is above 10, then outliner is within the range and needs to be interpolated
+std_max=10;
+
+for i=start:stepsize:inc_end
+    validIndices = ~isnan(colpos_breast(i,1));
+    if validIndices == 1
+        min_range_rows=i-stepsize;
+        max_range_rows=i;
+        validIndices2 = sum(~isnan(colpos_breast([ min_range_rows:max_range_rows],1)));
+        if validIndices2 >= stepsize
+        local_breastrange=colpos_breast([ min_range_rows:max_range_rows],1);
+        std_breast=std(local_breastrange);
+            if std_breast >= std_max
+            [counts,centers]=hist(colpos_breast([ min_range_rows:max_range_rows],1));
+            sum_start=sum(counts(1,1:3));
+            sum_end=sum(counts(1,end-3:end));
+                if sum_start>sum_end % number which is bigger data cloud that belongs to breast contour && number which is smaller data cloud that belongs to the outliner
+               [Max_peak,~,~,~] = extrema(counts);
+                max_value=max(Max_peak);% max indicates breast data
+                max_pos=min(find(max_value==counts));
+                min_value=min(Max_peak);% min indicates outliner data
+                min_pos=max(find(min_value==counts)); 
+                colpos_maxcenters=centers(1,max_pos);
+                colpos_mincenters=centers(1,min_pos);
+                abs_colpos=abs(colpos_maxcenters-colpos_mincenters);
+                range_min_max=round(abs_colpos/2);
+                colpos_minround=round(colpos_mincenters);
+                maxcol_value_outliner=colpos_minround+range_min_max;
+                mincol_value_outliner=colpos_minround-range_min_max;
+                pos_outliner=find(mincol_value_outliner<local_breastrange & maxcol_value_outliner>local_breastrange); % find position of outliners
+                colpos_maxround=round(colpos_maxcenters);% correct outliners by using an interpolated value 
+                maxcol_value_breast=colpos_maxround+range_min_max;
+                mincol_value_breast=colpos_maxround-range_min_max;
+                pos_breast=find(mincol_value_breast<local_breastrange & maxcol_value_breast>local_breastrange);
+                mean_values_breast=round(mean(local_breastrange(pos_breast,1)));
+                length_pos_outliner=length(pos_outliner);
+                length_mean_values_breast=repmat(mean_values_breast,length_pos_outliner,1);
+                colpos_breast((pos_outliner+min_range_rows-1),1)=length_mean_values_breast;%replaced outliners with interpolated values
+                else
+                [Max_peak,~,~,~] = extrema(counts);
+                max_value=max(Max_peak);
+                max_pos=max(find(max_value==counts));
+                min_value=min(Max_peak);
+                min_pos=min(find(min_value==counts));
+                colpos_maxcenters=centers(1,max_pos);
+                colpos_mincenters=centers(1,min_pos);
+                abs_colpos=abs(colpos_maxcenters-colpos_mincenters);
+                range_min_max=round(abs_colpos/2);
+                colpos_minround=round(colpos_mincenters);
+                maxcol_value_outliner=colpos_minround+range_min_max;
+                mincol_value_outliner=colpos_minround-range_min_max;
+                pos_outliner=find(mincol_value_outliner<local_breastrange & maxcol_value_outliner>local_breastrange); % find position of outliners
+                colpos_maxround=round(colpos_maxcenters);% correct outliners by using an interpolated value 
+                maxcol_value_breast=colpos_maxround+range_min_max;
+                mincol_value_breast=colpos_maxround-range_min_max;
+                pos_breast=find(mincol_value_breast<local_breastrange & maxcol_value_breast>local_breastrange);
+                mean_values_breast=round(mean(local_breastrange(pos_breast,1)));
+                length_pos_outliner=length(pos_outliner);
+                length_mean_values_breast=repmat(mean_values_breast,length_pos_outliner,1);
+                colpos_breast((pos_outliner+min_range_rows-1),1)=length_mean_values_breast;%replaced outliners with interpolated values
+                end
+            end
+        % eventually while loop until std_breast is good, before test if
+        % conditions
+        end
+    end
+end
+
+figure;imshow(data,[])
+length_row_breast=1:row;
+line(chestwall_max_pos,length_row_chest)
+line(colpos_breast,length_row_breast,'Color','r')
+figure;imshow(data3,[]);
+line(colpos_breast,length_row_breast,'Color','r')
+line(chestwall_max_pos,length_row_chest)
+
+% out of all pics a folder I can get the ONE where I clearly get chestwall horizontally
+% create an image to demonstrate the cheastwall line in original image
+% all others rely on this one and I can get shifts
+% shifts can be summarized in a colormap image where colors indicate mm-shifts
+%  I need Hnd.m file for the beginning of the program eventually. Its always better to start a program like that
+% for more inspiration I need MRI_qa.m
+
+% using MV setup image as ground truth - to calculate shifts from and also to get initial pixel values for bone and breast
+
+%21/09 try to figure out what is the threshold for bone with real values -for each pat and eventually fraction maybe different- that needs to be clearyfied
+% get rid of error breast segmentation 
+
+% Analysis
+%
+% 
+%all segmented contours (breast, chestwall & are vectors) of single images into a matrix. Matrix chestwall and Matrix breast. need to make sure that i.e. row 161 alings with all images. each row will be cleared (for loop) of NANs to [] and range will be assessed. mean value of all rows that consists of ranges to deminish countor uncertainty.  
+%correct aperture distance, see paper 2.3.1
+%having matrix motion corrected to isocenter, now we can calculate the actual shift in isocenter by calculating from pixel values to mm or cm
+
+%% time of process %%
+t=toc; % time is seconds
+t2=round(t);
+time=datestr(datenum(0,0,0,0,0,t2),'HH:MM:SS');% hours:minutes:seconds
+
+
