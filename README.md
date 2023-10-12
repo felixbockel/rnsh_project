@@ -1,6 +1,12 @@
 # In Short
 
+## Code
 
+1) matlab_itools_analysis and matlab_transform_hnd_to_image help to preprocess raw data before running 2).
+2) first script is called matlab_run_all_patients_start_main_scipt  that includes all patients and initiates 3) script.
+3) matlab_main_script_image_processing_workflow includes all matlab written functions in 4).
+4) all matlab functions start with matlab_func.
+5) matlab_plot_all_data is to help plotting transformed data 1)-4). Some of them are listed in section "In Detail".6) 
 
 # In Detail
 # Commissioning report of auto chestwall segmentation on MV- cine images for breast deep inspiration breath-hold (DIBH) whole breast and supraclavicular fossa treatments
