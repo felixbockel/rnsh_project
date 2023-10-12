@@ -1,0 +1,115 @@
+
+function data3 = ICE_wedge(data)
+%% image contrast enhancement %%
+%data2 = uint8(255 * mat2gray(data1));
+%figure;imshow(enhanced,[]);
+data3 = double(data);
+%figure;imshow(data3,[]);
+
+%figure;plot(data3(330,:));
+%[row,col]=size(data1);
+
+value_pcut=PCUT(data3);
+data3(data3>value_pcut)=0;%wedge noise frames data3(data3>16300)=0 % IMRT&conformal&wedge no noise data3(data3>16000)=0;
+%get profile of image; use at least ten point of profile and calc the m. highest or lowest m indicated noise to signal border. get location of it and calc min and max intensity within that range. thats how background noise can be cutted for each image. 
+
+
+%%% get rid of FOV frame which containts high pixel values and set to background
+fftImage = fft2(data3);
+% centeredFFTImage = log(fftshift(real(fftImage)));
+%figure;imshow(centeredFFTImage, []);
+% Zero out the corners
+window = 10;
+fftImage(1:window, 1:window) = 0;
+fftImage(end-window:end, 1:window) = 0;
+fftImage(1:window, end-window:end) = 0;
+fftImage(end-window:end, end-window:end) = 0;
+
+% Display the filtered FFT image.
+% Shift it and take log so we can see it easier.
+% centeredFFTImage = log(fftshift(real(fftImage)));
+%figure;imshow(centeredFFTImage, []);
+% m = abs(fftImage); 
+% f = (0:length(fftImage)-1)*50/length(fftImage);
+%figure;plot(f,m)
+
+% Inverse FFT to get high pass filtered image.
+output = ifft2(fftImage);
+real_output=real(output);
+%figure;imshow(real_output, []);
+
+[row,col]=size(real_output);
+pos_save=zeros(row,col);
+for i=1:row
+    pos_zero_positive=find(real_output(i,:)>2500);% IMRT fields had 2000 % initially 3000
+    pos_zero_negative=find(real_output(i,:)<-2500);% IMRT fields had 2000 % initially 3000
+    value_empty_positive = isempty(pos_zero_positive);
+    value_empty_negative = isempty(pos_zero_negative);         
+    if value_empty_positive == 0
+         data3(i,pos_zero_positive)=0;    
+    end
+    if value_empty_negative == 0
+         data3(i,pos_zero_negative)=0;    
+    end
+end
+%figure;imshow(data3,[]);
+
+%%%% get rid of periodic noise
+ lowpass = 15;
+ %highpass = 20;
+ 
+ data3_filt=data3;
+ data3_filt(data3_filt == 0) = NaN;
+ Idm = nanmedian(data3_filt, lowpass);
+ 
+ Idm2 =  medfilt2(data3, [lowpass lowpass]);
+ %imshow(Idm);
+ 
+ %Idm3 = Idm2 - medfilt2(Idm2, [highpass highpass]);
+ %imshow(Ide);
+ 
+ %finalFilteredGrayImage = Idm; %+ Ide;
+ %figure;imagesc(Idm); colormap gray;
+ %figure;imshow(Idm,[]);
+ %figure;imshow(Idm2,[]);
+ 
+ data3=Idm2;
+ %data3=Idm3;
+ Idm2(Idm2 == 0) = 16000;
+ %figure;imshow(Idm2,[]);
+
+
+
+
+
+%%%%%% enhance image contrast
+%  Idm3 = uint8(255 * mat2gray(Idm2));
+%  b = imsharpen(Idm3,'Radius',2,'Amount',1);
+%  figure;imshow(b,[]);
+% % 
+%  Idm3 = uint8(255 * mat2gray(Idm2));
+%  data3_imadjust = imadjust(Idm3);
+%  data3_histeq = histeq(Idm3);
+%  data3_adapthisteq = adapthisteq(Idm3);
+% % 
+%  figure;imshow(data3_imadjust,[]);
+%  figure;imshow(data3_histeq,[]);
+%  figure;imshow(data3_adapthisteq,[]);
+%  
+%  figure;plot(b(120,:));
+%  figure;plot(b(330,:));
+%  figure;plot(b(600,:));
+%  
+%  figure;plot(data3_imadjust(120,:));
+%  figure;plot(data3_imadjust(330,:));
+%  figure;plot(data3_imadjust(600,:));
+% 
+%  figure;plot(data3_histeq(120,:));
+%  figure;plot(data3_histeq(330,:));
+%  figure;plot(data3_histeq(600,:));
+%  
+%  figure;plot(data3_adapthisteq(120,:));
+%  figure;plot(data3_adapthisteq(330,:));
+%  figure;plot(data3_adapthisteq(600,:));
+%  
+ 
