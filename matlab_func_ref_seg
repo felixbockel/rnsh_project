@@ -1,0 +1,602 @@
+function [min_length_data_scf,current_chestwall,current_length_chestwall,current_scf_length_chestwall,current_scf_chestwall,current_breast,current_length_breast] = REF_SEG(matrix_current_scf_chestwall,matrix_current_scf_length_chestwall,matrix_colpos_breast,matrix_length_row_breast,matrix_chestwall_max_pos,matrix_length_row_chest,scf_data,size_signal_chestw,safe_row_chestw,safe_col_chestw,chestwall_ind,ones_high_noise_chestw,matrix_value_pcut,matrix_mean_all_int_value_breast)
+                                                                                                             
+
+empty_scf_data=isempty(scf_data);
+if empty_scf_data == 1  
+    %% compare ref chestwall segmentation with current chestwall segmentation- outliers will be NaN'ed %%
+    [row_matrix,col_matrix]=size(matrix_chestwall_max_pos);
+    ref_chestwall=chestwall_ind;%max_ind1
+    min_length_data=200;% at least 300 out 501 values should be found to segment chestwall correctly
+    std_standard=4;% std <4, shape is close to ref and chestwall can be segmented,> 4 chestwall segmentation is false
+    std_higher=5;
+    %correct start ind of ref chestwall vector
+    [row_chest_max,~]=size(ref_chestwall);
+    if row_chest_max < row_matrix
+    zero_200=zeros(200,1); %200 % has be to changed when I change for loop (start creterium) in segmentation code
+    zero_chestwall=[zero_200;ref_chestwall];
+    zero_chestwall(end:768)=0;
+    zero_chestwall(768+1:end)=[];
+    ref_chestwall=zero_chestwall;
+    length_row_chest=1:row_chest_max;
+    end
+    
+    ref_chestwall(ref_chestwall==0)=NaN;
+    
+%     % search for analysis roi and cut unnecessary rows %%
+%     for iii=1:row_matrix
+%       value_row_chestw=matrix_chestwall_max_pos(iii,:);
+%       value_row_chestw(isnan(value_row_chestw))=[];
+%       empty_value_row_chestw=isempty(value_row_chestw);
+%       if empty_value_row_chestw ==0
+%           length_vector_chestw=length(value_row_chestw);
+%           if length_vector_chestw > min_length_data
+%               std_value_row_chestw=std(value_row_chestw);
+%               if std_value_row_chestw < std_constraint
+%               chestw_safe_row(iii,:)=iii;
+%               end
+%           end
+%       end     
+%     end
+%     
+% sigma=2;% 2 sigma equals to second std = 95.5% of the data which will be assessed for further analysis
+% matrix_col_std=zeros(row_matrix,col_matrix);
+% for i=1:row_matrix %find outliers and delete them 2nd std as indicator
+% %min_chestwall=min(matrix_chestwall_max_pos(i,:));
+% %max_chestwall=max(matrix_chestwall_max_pos(i,:));
+% matrix_row=[];
+% matrix_row=matrix_chestwall_max_pos(i,:)'; % delete errors by taking sigma 2 of std, then get min and max range
+% matrix_row(isnan(matrix_row(:,1)),:) = [];
+% max_range_chestwall=round(mean(matrix_row)+sigma*std(matrix_row));
+% min_range_chestwall=round(mean(matrix_row)-sigma*std(matrix_row));
+% chestwall_pos_max=find(matrix_row>= max_range_chestwall);% delete = or not
+% chestwall_pos_min=find(matrix_row<= min_range_chestwall);% delete = or not
+% empt_chestwall_pos_max=isempty(chestwall_pos_max);
+% empt_chestwall_pos_min=isempty(chestwall_pos_min);
+%     
+%     if empt_chestwall_pos_max==1 && empt_chestwall_pos_min==1
+%         min_chestwall=min(matrix_chestwall_max_pos(i,:));
+%         max_chestwall=max(matrix_chestwall_max_pos(i,:));
+% 
+%     elseif empt_chestwall_pos_max==1
+%         [row,~]=size(chestwall_pos_min);
+%         for ii=1:row
+%         matrix_row(chestwall_pos_min(ii,1),1) = NaN;
+%         end
+%         matrix_row(isnan(matrix_row(:,1)),:) = [];
+%         min_chestwall=min(matrix_row);
+%         max_chestwall=max(matrix_row);
+%     
+%     elseif empt_chestwall_pos_min==1
+%         [row,~]=size(chestwall_pos_max); 
+%         for ii=1:row
+%         matrix_row(chestwall_pos_max(ii,1),1) = NaN;
+%         end
+%         matrix_row(isnan(matrix_row(:,1)),:) = [];
+%         min_chestwall=min(matrix_row);
+%         max_chestwall=max(matrix_row);
+%     else 
+%         [row,~]=size(chestwall_pos_max); 
+%         for ii=1:row    
+%         matrix_row(chestwall_pos_max(ii,1),1) = NaN;
+%         end
+%         [row,~]=size(chestwall_pos_min); 
+%         for ii=1:row
+%         matrix_row(chestwall_pos_min(ii,1),1) = NaN;
+%         end
+%         matrix_row(isnan(matrix_row(:,1)),:) = [];
+%         min_chestwall=min(matrix_row);
+%         max_chestwall=max(matrix_row);    
+%         
+%     end
+% 
+%     motion_pixel_row=abs(max_chestwall-min_chestwall);
+%     empt_motion_pixel_row=isempty(motion_pixel_row);
+%     
+%     if empt_motion_pixel_row==1
+%         motion_pixel_row = NaN;
+%         min_chestwall=NaN;
+%         max_chestwall=NaN;
+%         all_motion_pixel_row(i,:)=motion_pixel_row;%vec
+%         all_motion_min_chestw(i,:)=min_chestwall;%vec
+%         all_motion_max_chestw(i,:)=max_chestwall;%vec
+%     else
+%         
+%         all_motion_pixel_row(i,:)=motion_pixel_row;%vec
+%         all_motion_min_chestw(i,:)=min_chestwall;%vec
+%         all_motion_max_chestw(i,:)=max_chestwall;%vec
+%     end 
+%     values_col=find(matrix_chestwall_max_pos(i,:)>all_motion_min_chestw(i,:) & matrix_chestwall_max_pos(i,:)<all_motion_max_chestw(i,:) );
+%     empt_values_col=isempty(values_col);
+%     if empt_values_col==1
+%        matrix_col_std(i,:)=NaN; 
+%     else
+%        values_col(end:col_matrix)=NaN; 
+%        matrix_col_std(i,:)=values_col;
+%     end
+% end
+%     for seq=1:col_matrix
+%     
+%     num_seq(seq,:)=length(find(seq==matrix_col_std));
+%     
+%     end
+    %[row_noise_chestw,~]=size(ones_high_noise_chestw);
+%     zero_chestwall=[];
+%     if row_noise_chestw < row_matrix
+%     zero_200=zeros(200,1); %200 % has be to changed when I change for loop (start creterium) in segmentation code
+%     zero_chestwall=[zero_200;ones_high_noise_chestw];
+%     zero_chestwall(end:768)=0;
+%     zero_chestwall(768+1:end)=[];
+%     ones_high_noise_chestw=zero_chestwall;
+%     end
+    
+    % figure;plot(chestwall_max_pos,'g');
+    % hold on
+    % plot(ref_chestwall)
+    % hold off
+    for ii=1:col_matrix
+     %% prepare ref matrix and all other frames for comparison
+        empty_chestwall_max_pos=isempty(matrix_chestwall_max_pos(:,ii));
+        %calculate the distance between each row of two lines and analyze data cloud
+        [row,~]=size(ref_chestwall);
+        vector_dist_ref_com_chestw=[];
+        for i=1:row
+            if empty_chestwall_max_pos == 1 % if chestwall_max_pos empty then dont go into for loop
+            else
+                ref_value_chestwall=ref_chestwall(i,:);
+                compare_value_chestwall=matrix_chestwall_max_pos(i,ii);
+                dist_ref_com_chestw=abs(ref_value_chestwall-compare_value_chestwall);
+                vector_dist_ref_com_chestw(i,:)=dist_ref_com_chestw;
+            end
+
+        end
+       %% ref segmentation and each frame are compared- data length and std are the creteria  
+        vector_dist_ref_com_chestw_empty=isempty(vector_dist_ref_com_chestw);
+        if vector_dist_ref_com_chestw_empty == 1
+            current_chestwall(:,ii)=NaN(row_matrix,1);
+            current_length_chestwall(:,ii)=NaN(row_matrix,1);
+        else
+            vector_dist_ref_com_chestw(isnan(vector_dist_ref_com_chestw(:,1)),:) = [];
+            length_vector_chest=length(vector_dist_ref_com_chestw);
+            %% data length
+            if length_vector_chest > min_length_data
+                std_vec_chestw=round(std(vector_dist_ref_com_chestw),0);
+                noise_chestw=ones_high_noise_chestw(ii);
+                if  noise_chestw==1 % if very noisy image mostly edw cases, then level std up to 7
+                    std_constraint=std_higher;
+                    %% std
+                    if std_vec_chestw<std_constraint % std <4, shape is close to ref and chestwall can be segmented,> 4 chestwall segmentation is false
+                        current_chestwall(:,ii)=matrix_chestwall_max_pos(:,ii);
+                        current_length_chestwall(:,ii)=matrix_length_row_chest(:,ii);
+                    else
+                        current_chestwall(:,ii)=NaN(row_matrix,1);
+                        current_length_chestwall(:,ii)=NaN(row_matrix,1);
+
+                    end
+                    std_constraint=std_standard;
+                else 
+                    std_constraint=std_standard;
+                    if std_vec_chestw<std_constraint % std <4, shape is close to ref and chestwall can be segmented,> 4 chestwall segmentation is false
+                        current_chestwall(:,ii)=matrix_chestwall_max_pos(:,ii);
+                        current_length_chestwall(:,ii)=matrix_length_row_chest(:,ii);
+                    else
+                        current_chestwall(:,ii)=NaN(row_matrix,1);
+                        current_length_chestwall(:,ii)=NaN(row_matrix,1);
+
+                    end
+                end
+                
+
+            else
+
+                current_chestwall(:,ii)=NaN(row_matrix,1);
+                current_length_chestwall(:,ii)=NaN(row_matrix,1);
+            end
+        end
+    
+    end
+%     
+%     %current_chestwall=chestwall_max_pos; % for testing
+%     %current_length_chestwall=length_row_chest';% for testing
+%     %line(chestwall_max_pos,length_row_chest)% for testing
+%     
+    
+    %% chestwall segmentation is complete
+    %% find ref for breast tissue- outliers will be NaN'ed %%
+    %% Prepare data for following steps
+    % matrix_colpos_breast,matrix_length_row_breast
+    
+    % first step, find right length of segmentation
+    ref_value_breast=[];
+    [~,col_chest]=size(matrix_colpos_breast); 
+    loop_counter=0;
+    for i=1:col_chest
+        vec_matrix=matrix_colpos_breast(:,i);
+        vec_matrix(isnan(vec_matrix))=[];
+        vec_col_length=length(vec_matrix);
+        if vec_col_length < 200 % at least 300 out 501 values should be found to segment chestwall correctly
+            loop_counter=1+loop_counter;
+            ref_value_breast(:,loop_counter)=i;
+        end    
+    end
+    empty_ref_value_breast=isempty(ref_value_breast);
+    if empty_ref_value_breast==0
+        matrix_colpos_breast(:,ref_value_breast)=NaN;    
+    end
+    sum_test=matrix_colpos_breast;
+    sum_test(isnan(sum_test))=0;
+    sum_sum_test=sum(sum(sum_test));
+    
+    %% find reference image for breast tissue segmentation
+    if sum_sum_test>0
+            % second step, get openfield data and apply that to find ref image
+
+       %size_signal_chestw,safe_row_chestw,safe_col_chestw 
+       % 1. Option
+       nan_value_breast=[]; 
+       % 2. Option
+       loop_counter=0;
+       for i=1:col_chest
+            vec_col_nan=sum(isnan(matrix_colpos_breast(:,i)));
+            length_col_nan=length(matrix_colpos_breast(:,i));
+            if vec_col_nan==length_col_nan
+                loop_counter=1+loop_counter;
+                nan_value_breast(:,loop_counter)=i;
+            end    
+       end
+       
+       empty_nan_value_breast=isempty(nan_value_breast);
+       if empty_nan_value_breast == 1
+       nan_value_breast=[];
+       end
+       
+       safe_row_chestw(:,nan_value_breast)=0; % image: up and down 
+       safe_col_chestw(:,nan_value_breast)=0; % image: left and right 
+
+       [ind1_row_breast,index_row1]=find(safe_row_chestw==1); % image: up and down  
+       [ind2_row_breast,~]=find(safe_row_chestw==2); % image: up and down 
+
+       [ind1_col_breast,~]=find(safe_col_chestw==1); % image: left and right 
+       [ind2_col_breast,~]=find(safe_col_chestw==2); % image: left and right 
+
+       dis_row_breast=abs(ind1_row_breast-ind2_row_breast);
+       dis_col_breast=abs(ind1_col_breast-ind2_col_breast);
+
+       [max_hist_row,ind_hist_row] = histcounts(dis_row_breast);
+       ind_max=find(max(max_hist_row)==max_hist_row);
+       range_chest_row_low=min(ind_hist_row(ind_max));
+       range_chest_row_high=max(ind_hist_row(ind_max+1));
+
+       [max_hist_col,ind_hist_col]=histcounts(dis_col_breast);
+       ind_max=find(max(max_hist_col)==max_hist_col);
+       range_chest_col_low=min(ind_hist_col(ind_max));
+       range_chest_col_high=max(ind_hist_col(ind_max+1));
+
+    %    range_chest_row_low=round(value_range_row-(value_range_row*0.015),0);%plus +/- 0.8% margin
+    %    range_chest_col_low=round(value_range_col-(value_range_col*0.015),0);%plus +/- 0.8% margin
+    %    
+    %    range_chest_row_high=round(value_range_row+(value_range_row*0.015),0);%plus +/- 0.8% margin
+    %    range_chest_col_high=round(value_range_col+(value_range_col*0.015),0);%plus +/- 0.8% margin
+    %   
+       ind_dis_row_breast=(dis_row_breast>range_chest_row_low & dis_row_breast<range_chest_row_high); % ind of ref frame
+       ind_dis_col_breast=(dis_col_breast>range_chest_col_low & dis_col_breast<range_chest_col_high); % ind of ref frame
+
+    %    dis_row_breast=abs(ind1_row_breast-ind2_row_breast);
+    %    dis_col_breast=abs(ind1_col_breast-ind2_col_breast);
+    %    
+    %    range_chest_row=round(max(dis_row_breast)-(max(dis_row_breast)*0.015),0);%plus +/- 0.8% margin
+    %    range_chest_col=round(max(dis_col_breast)-(max(dis_col_breast)*0.015),0);%plus +/- 0.8% margin
+    %   
+    %    ind_dis_row_breast=(dis_row_breast>range_chest_row & dis_row_breast<(max(dis_row_breast))); % ind of ref frame
+    %    ind_dis_col_breast=(dis_col_breast>range_chest_col & dis_col_breast<(max(dis_col_breast))); % ind of ref frame
+
+       ind_row_breast=ind_dis_row_breast.*dis_row_breast;
+       ind_col_breast=ind_dis_col_breast.*dis_col_breast;
+
+       match_row_col=find(ind_row_breast>0 & ind_col_breast>0); 
+       empty_match_row_col=isempty(match_row_col);
+       if empty_match_row_col == 1
+       ind_ref_breast=[];
+       else
+       pos_ind_ref_breast=index_row1(match_row_col);% all indexes have the same values and pos_ind_ref_breast gives me the frames which can be used as ref image
+       halflength_ref_breast=round(length(pos_ind_ref_breast)/2,0);
+       ind_ref_breast=pos_ind_ref_breast(halflength_ref_breast);
+       end
+       %% ind_ref_breast indicates the frame which is going to be the reference
+        %% compare ref frame with all other segmented frames %%
+        %% prepare data
+        [row,col]=size(matrix_colpos_breast);
+        ref_breast_ref=matrix_colpos_breast(:,ind_ref_breast);%max_ind1
+        min_length_data=200;% at least 300 out 501 values should be found to segment chestwall correctly
+        std_constraint=4;% std <4, shape is close to ref and chestwall can be segmented,> 4 chestwall segmentation is false
+
+        %correct start ind of ref chestwall vector
+    %     [row_breast_max,~]=size(ref_breast_ref);
+    %     if row_breast_max < row
+    %         zero_200=zeros(200,1);
+    %         zero_breast=[zero_200;ref_breast_ref];
+    %         zero_breast(end:row,:)=0;
+    %         ref_breast_ref=breast;
+    %         length_row_breast=1:row;
+    %     end
+
+        %ref_breast_ref(ref_breast_ref==0)=NaN;
+
+        % figure;plot(chestwall_max_pos,'g');
+        % hold on
+        % plot(ref_chestwall)
+        % hold off
+        
+        %% prepare ref and all other frame for comparison
+        for ii=1:col
+            colpos_breast_empty=isempty(matrix_colpos_breast(:,ii));
+            %calculate the distance between each row of two lines and analyze data cloud
+            [row_ref_breast,~]=size(ref_breast_ref);
+            vector_dist_ref_com_breast=[];
+            for i=1:row_ref_breast
+                if colpos_breast_empty == 1 % if chestwall_max_pos empty then dont go into for loop
+                else
+                    ref_value_breast=ref_breast_ref(i,:);
+                    compare_value_breast=matrix_colpos_breast(i,ii);
+                    dist_ref_com_breast=abs(ref_value_breast-compare_value_breast);
+                    vector_dist_ref_com_breast(i,:)=dist_ref_com_breast;
+                end
+
+            end
+
+            %% ref segmentation and all other frames are compared- data length, std, intensity cut are the creteria 
+            vector_dist_ref_com_breast_empty=isempty(vector_dist_ref_com_breast);
+            if vector_dist_ref_com_breast_empty == 1
+                current_breast(:,ii)=NaN(row,1);
+                current_length_breast(:,ii)=NaN(row,1);
+            else
+                vector_dist_ref_com_breast(isnan(vector_dist_ref_com_breast(:,1)),:) = [];
+                length_vector_breast=length(vector_dist_ref_com_breast);
+                % data length
+                if length_vector_breast > min_length_data
+                    std_vec_breast=std(vector_dist_ref_com_breast);
+                    % std
+                    if std_vec_breast<std_constraint % std <4, shape is close to ref and chestwall can be segmented,> 4 chestwall segmentation is false
+                        % intensity cut
+                        if matrix_mean_all_int_value_breast(:,ii)<matrix_value_pcut(:,ind_ref_breast)
+                        current_breast(:,ii)=matrix_colpos_breast(:,ii);
+                        current_length_breast(:,ii)=matrix_length_row_breast(:,ii);
+                        else
+                        current_breast(:,ii)=NaN(row,1);
+                        current_length_breast(:,ii)=NaN(row,1);
+                        end
+                    else
+                        current_breast(:,ii)=NaN(row,1);
+                        current_length_breast(:,ii)=NaN(row,1);
+
+                    end
+
+                else
+
+                    current_breast(:,ii)=NaN(row,1);
+                    current_length_breast(:,ii)=NaN(row,1);
+                end
+            end
+        end
+        %current_breast=colpos_breast; % for testing
+        %current_length_breast=length_row_breast';% for testing
+        %line(chestwall_max_pos,length_row_chest)% for testing
+
+        current_scf_length_chestwall=[];
+        current_scf_chestwall=[];
+        min_length_data_scf=[];
+    else
+        
+       current_scf_length_chestwall=[];
+       current_scf_chestwall=[]; 
+       current_breast=[];
+       current_length_breast=[];
+       min_length_data_scf=[];
+    end
+ 
+else
+    %% breast tissue segmentation is done
+    %% compare ref chestwall segmentation with current chestwall segmentation- outliers will be NaN'ed %%
+    %% find ref for scf chestwall %%
+    
+    % first step, find right length of segmentation
+     ref_value_breast=[];
+     [~,col_chest]=size(matrix_current_scf_chestwall); 
+%     loop_counter=0;
+%     for i=1:col_chest
+%         vec_matrix=matrix_current_scf_chestwall(:,i);
+%         vec_matrix(isnan(vec_matrix))=[];
+%         vec_col_length=length(vec_matrix);
+%         if vec_col_length < 100 
+%             loop_counter=1+loop_counter;
+%             ref_value_breast(:,loop_counter)=i;
+%         end    
+%     end
+%     empty_ref_value_breast=isempty(ref_value_breast);
+%     if empty_ref_value_breast==0
+%         matrix_current_scf_chestwall(:,ref_value_breast)=NaN;    
+%     end
+    
+   % second step, get openfield data and apply that to find ref image
+    
+   %size_signal_chestw,safe_row_chestw,safe_col_chestw 
+   % 1. Option
+   nan_value_breast=[];
+   % 2. Option
+   loop_counter=0;
+   for i=1:col_chest
+        vec_col_nan=sum(isnan(matrix_current_scf_chestwall(:,i)));
+        length_col_nan=length(matrix_current_scf_chestwall(:,i));
+        if vec_col_nan==length_col_nan
+            loop_counter=1+loop_counter;
+            nan_value_breast(:,loop_counter)=i;
+        end    
+   end
+   
+   empty_nan_value_breast=isempty(nan_value_breast);
+   if empty_nan_value_breast == 1
+     nan_value_breast=[];
+   end
+   
+   safe_row_chestw(:,nan_value_breast)=0; % image: up and down 
+   safe_col_chestw(:,nan_value_breast)=0; % image: left and right 
+   
+   [ind1_row_breast,index_row1]=find(safe_row_chestw==1); % image: up and down  
+   [ind2_row_breast,~]=find(safe_row_chestw==2); % image: up and down 
+  
+   [ind1_col_breast,~]=find(safe_col_chestw==1); % image: left and right 
+   [ind2_col_breast,~]=find(safe_col_chestw==2); % image: left and right 
+   
+   dis_row_breast=abs(ind1_row_breast-ind2_row_breast);
+   dis_col_breast=abs(ind1_col_breast-ind2_col_breast);
+   
+   [max_hist_row,ind_hist_row] = histcounts(dis_row_breast);
+   ind_max=find(max(max_hist_row)==max_hist_row);
+   range_chest_row_low=min(ind_hist_row(ind_max));
+   range_chest_row_high=max(ind_hist_row(ind_max+1));
+    
+   [max_hist_col,ind_hist_col]=histcounts(dis_col_breast);
+   ind_max=find(max(max_hist_col)==max_hist_col);
+   range_chest_col_low=min(ind_hist_col(ind_max));
+   range_chest_col_high=max(ind_hist_col(ind_max+1));
+   
+%    range_chest_row_low=round(value_range_row-(value_range_row*0.015),0);%plus +/- 0.8% margin
+%    range_chest_col_low=round(value_range_col-(value_range_col*0.015),0);%plus +/- 0.8% margin
+%    
+%    range_chest_row_high=round(value_range_row+(value_range_row*0.015),0);%plus +/- 0.8% margin
+%    range_chest_col_high=round(value_range_col+(value_range_col*0.015),0);%plus +/- 0.8% margin
+%   
+   ind_dis_row_breast=(dis_row_breast>range_chest_row_low & dis_row_breast<range_chest_row_high); % ind of ref frame
+   ind_dis_col_breast=(dis_col_breast>range_chest_col_low & dis_col_breast<range_chest_col_high); % ind of ref frame
+  
+   ind_row_breast=ind_dis_row_breast.*dis_row_breast;
+   ind_col_breast=ind_dis_col_breast.*dis_col_breast;
+    
+   match_row_col=find(ind_row_breast>0 & ind_col_breast>0); 
+   empty_match_row_col=isempty(match_row_col);
+   if empty_match_row_col == 1
+       ind_ref_breast=[];
+   else
+   pos_ind_ref_breast=index_row1(match_row_col);% all indexes have the same values and pos_ind_ref_breast gives me the frames which can be used as ref image
+   halflength_ref_breast=round(length(pos_ind_ref_breast)/2,0);
+   ind_ref_breast=pos_ind_ref_breast(halflength_ref_breast);
+   end 
+   %% ind_ref_breast indicates the frame which is going to be the reference for scf
+   %% compare ref frame with all other segmented frames %%
+   %% prepare data
+  
+    
+    [row,col]=size(matrix_current_scf_chestwall);
+    ref_chestwall=matrix_current_scf_chestwall(:,ind_ref_breast);%max_ind1
+    nonan_ref=ref_chestwall;
+    nonan_ref(isnan(nonan_ref))=[];
+    length_nonan_ref=length(nonan_ref);
+    min_length_data=length_nonan_ref/2;% at least 300 out 501 values should be found to segment chestwall correctly
+    min_length_data_scf=min_length_data;
+    std_constraint=6;% std <4, shape is close to ref and chestwall can be segmented,> 4 chestwall segmentation is false
+    counter_col_loop=0;
+    %correct start ind of ref chestwall vector
+    % [row_chest_max,~]=size(ref_chestwall);
+    % if row_chest_max < row
+    %    zero_200=zeros(200,1);
+    %    zero_chestwall=[zero_200;ref_chestwall];
+    %    zero_chestwall(end:row,:)=0;
+    %    ref_chestwall=zero_chestwall;
+    %    length_row_chest=1:row;
+    % end
+    
+    % ref_chestwall(ref_chestwall==0)=NaN;
+    
+    % figure;plot(chestwall_max_pos,'g');
+    % hold on
+    % plot(ref_chestwall)
+    % hold off
+    %% data prepared for comparison ref and all other frames
+     for ii=1:col
+         chestwall_max_empty=isempty(matrix_current_scf_chestwall(:,ii));
+        %calculate the distance between each row of two lines and analyze data cloud
+        [row_ref_chest,~]=size(ref_chestwall);
+        vector_dist_ref_com_chestw=[];
+        for i=1:row_ref_chest
+            if chestwall_max_empty == 1 % if chestwall_max_pos empty then dont go into for loop
+            else
+                ref_value_chestwall=ref_chestwall(i,:);
+                compare_value_chestwall=matrix_current_scf_chestwall(i,ii);
+                dist_ref_com_chestw=abs(ref_value_chestwall-compare_value_chestwall);
+                vector_dist_ref_com_chestw(i,:)=dist_ref_com_chestw;
+            end
+
+        end
+
+        %% ref segmentation and all other frames are compared- data length and std are the creteria 
+          
+        vector_dist_ref_com_chestw_empty=isempty(vector_dist_ref_com_chestw);
+        if vector_dist_ref_com_chestw_empty == 1
+            current_scf_chestwall(:,ii)=NaN(row,1);
+            current_scf_length_chestwall(:,ii)=NaN(row,1);
+        else
+            vector_dist_ref_com_chestw(isnan(vector_dist_ref_com_chestw(:,1)),:) = [];
+            length_vector_chest=length(vector_dist_ref_com_chestw);
+            % data length
+            if length_vector_chest > min_length_data
+                std_vec_chestw=std(vector_dist_ref_com_chestw);
+                % std
+                if std_vec_chestw<std_constraint % std <4, shape is close to ref and chestwall can be segmented,> 4 chestwall segmentation is false
+                    current_scf_chestwall(:,ii)=matrix_current_scf_chestwall(:,ii);
+                    current_scf_length_chestwall(:,ii)=matrix_current_scf_length_chestwall(:,ii);
+                    counter_col_loop=counter_col_loop+1;               
+                    
+                else
+                    current_scf_chestwall(:,ii)=NaN(row,1);
+                    current_scf_length_chestwall(:,ii)=NaN(row,1);
+
+                end
+
+            else
+
+                current_scf_chestwall(:,ii)=NaN(row,1);
+                current_scf_length_chestwall(:,ii)=NaN(row,1);
+            end
+        end
+     end
+    %current_chestwall=chestwall_max_pos; % for testing
+    %current_length_chestwall=length_row_chest';% for testing
+    %line(chestwall_max_pos,length_row_chest)% for testing
+    
+    
+    %% second decision is made. Before I looked at the column of the matrix and deleted outliers. Now I am looking at the row.
+    for ii=1:row
+        empty_chestw=isempty(current_scf_chestwall(ii,:));
+        if empty_chestw == 1 % if chestwall_max_pos empty then dont go into for loop
+        else
+            current_value_chestw=current_scf_chestwall(ii,:);
+            current_value_chestw(isnan(current_value_chestw)) = [];
+            empty_current_value_chestw=isempty(current_value_chestw);
+            %min_length_col=col/2;% col/2: this constraint might be too tight
+            min_length_col=counter_col_loop/2;% col/2: this constraint might be too tight
+            if empty_current_value_chestw==0 
+                length_current_value_chestw=length(current_value_chestw);
+                if  length_current_value_chestw <= min_length_col % more than 50% of the total frames is needed for fruther analysis       
+                    current_scf_chestwall(ii,:)=NaN(1,col);
+                    current_scf_length_chestwall(ii,:)=NaN(1,col);
+                else    
+                    std_vec_chestw=std(current_value_chestw);
+                    if std_vec_chestw>std_constraint
+                        current_scf_chestwall(ii,:)=NaN(1,col);
+                        current_scf_length_chestwall(ii,:)=NaN(1,col);
+                    end
+                end
+            end
+        end
+    end
+
+    %current_chestwall=chestwall_max_pos; % for testing
+    %current_length_chestwall=length_row_chest';% for testing
+    %line(chestwall_max_pos,length_row_chest)% for testing
+    
+    
+    
+    current_breast=[];
+    current_length_breast=[];
+    current_chestwall=[];
+    current_length_chestwall=[];
+end   
