@@ -1,0 +1,688 @@
+function [shift_mm,shift_mm_each_frame_int,shift_mm_breast] = Analysis_SEG(matrix_chestwall_max_pos,analysis_path,scf,matrix_breast_pos,min_length_data_scf)
+%% Analysis %%
+%% segmentation is done. the segmenation of all frames saved in a matrix. each column equals to a particular segmented frame. If segmentation failed column consists of NaN and if not then you can find numerics there. 
+%matrix_length_row_breast234
+%
+%matrix_length_row_chest234
+%matrix_colpos_breast234
+
+%% get min max range of all segmented frames to exclude outliers - 2nd std as creterium. Outlier is considered an image frame which shouldn't be segmented. particulare frame will be NaN'ed.  %%
+
+all_motion_pixel_row=[];
+if scf==1
+% scf seg  
+row_start=1;% tight margin- if shift of scf field applies, then I might get less data
+[row,~]=size(matrix_chestwall_max_pos); 
+else
+[row,~]=size(matrix_chestwall_max_pos);
+%matrix_chestwall_max_pos(1:row,1:50)=NaN;
+row_start=200;%dont want the axilla for breast and chestwall seg (high segmentation uncertainty) for analysis     
+end
+sigma=2;% 2 sigma equals to second std = 95.5% of the data which will be assessed for further analysis
+
+%% find outliers and exclude them starts here %%
+for i=row_start:1:row %find outliers and delete them 2nd std as indicator
+%min_chestwall=min(matrix_chestwall_max_pos(i,:));
+%max_chestwall=max(matrix_chestwall_max_pos(i,:));
+matrix_row=[];
+matrix_row=matrix_chestwall_max_pos(i,:)'; % delete errors by taking sigma 2 of std, then get min and max range
+matrix_row(isnan(matrix_row(:,1)),:) = [];
+max_range_chestwall=round(mean(matrix_row)+sigma*std(matrix_row));
+min_range_chestwall=round(mean(matrix_row)-sigma*std(matrix_row));
+chestwall_pos_max=find(matrix_row>= max_range_chestwall);% delete = or not
+chestwall_pos_min=find(matrix_row<= min_range_chestwall);% delete = or not
+empt_chestwall_pos_max=isempty(chestwall_pos_max);
+empt_chestwall_pos_min=isempty(chestwall_pos_min);
+    
+    if empt_chestwall_pos_max==1 && empt_chestwall_pos_min==1
+        min_chestwall=min(matrix_chestwall_max_pos(i,:));
+        max_chestwall=max(matrix_chestwall_max_pos(i,:));
+
+    elseif empt_chestwall_pos_max==1
+        [row,~]=size(chestwall_pos_min);
+        for ii=1:row
+        matrix_row(chestwall_pos_min(ii,1),1) = NaN;
+        end
+        matrix_row(isnan(matrix_row(:,1)),:) = [];
+        min_chestwall=min(matrix_row);
+        max_chestwall=max(matrix_row);
+    
+    elseif empt_chestwall_pos_min==1
+        [row,~]=size(chestwall_pos_max); 
+        for ii=1:row
+        matrix_row(chestwall_pos_max(ii,1),1) = NaN;
+        end
+        matrix_row(isnan(matrix_row(:,1)),:) = [];
+        min_chestwall=min(matrix_row);
+        max_chestwall=max(matrix_row);
+    else 
+        [row,~]=size(chestwall_pos_max); 
+        for ii=1:row    
+        matrix_row(chestwall_pos_max(ii,1),1) = NaN;
+        end
+        [row,~]=size(chestwall_pos_min); 
+        for ii=1:row
+        matrix_row(chestwall_pos_min(ii,1),1) = NaN;
+        end
+        matrix_row(isnan(matrix_row(:,1)),:) = [];
+        min_chestwall=min(matrix_row);
+        max_chestwall=max(matrix_row);    
+        
+    end
+
+motion_pixel_row=abs(max_chestwall-min_chestwall);
+empt_motion_pixel_row=isempty(motion_pixel_row);
+    
+    if empt_motion_pixel_row==1
+        motion_pixel_row = NaN;
+        min_chestwall=NaN;
+        max_chestwall=NaN;
+        all_motion_pixel_row(i,:)=motion_pixel_row;%vec
+        all_motion_min_chestw(i,:)=min_chestwall;%vec
+        all_motion_max_chestw(i,:)=max_chestwall;%vec
+    else
+        
+        all_motion_pixel_row(i,:)=motion_pixel_row;%vec
+        all_motion_min_chestw(i,:)=min_chestwall;%vec
+        all_motion_max_chestw(i,:)=max_chestwall;%vec
+    end 
+    
+    empty_breast_pos=isempty(matrix_breast_pos); % get min max for breast and chestwall to exclude outliers
+    if empty_breast_pos == 0
+        matrix_row=[];
+        matrix_row=matrix_breast_pos(i,:)'; % delete errors by taking sigma 2 of std, then get min and max range
+        matrix_row(isnan(matrix_row(:,1)),:) = [];
+        max_range_chestwall=round(mean(matrix_row)+sigma*std(matrix_row));
+        min_range_chestwall=round(mean(matrix_row)-sigma*std(matrix_row));
+        chestwall_pos_max=find(matrix_row>= max_range_chestwall);% delete = or not
+        chestwall_pos_min=find(matrix_row<= min_range_chestwall);% delete = or not
+        empt_chestwall_pos_max=isempty(chestwall_pos_max);
+        empt_chestwall_pos_min=isempty(chestwall_pos_min);
+        
+        if empt_chestwall_pos_max==1 && empt_chestwall_pos_min==1
+            min_chestwall=min(matrix_chestwall_max_pos(i,:));
+            max_chestwall=max(matrix_chestwall_max_pos(i,:));
+            
+        elseif empt_chestwall_pos_max==1
+            [row,~]=size(chestwall_pos_min);
+            for ii=1:row
+                matrix_row(chestwall_pos_min(ii,1),1) = NaN;
+            end
+            matrix_row(isnan(matrix_row(:,1)),:) = [];
+            min_chestwall=min(matrix_row);
+            max_chestwall=max(matrix_row);
+            
+        elseif empt_chestwall_pos_min==1
+            [row,~]=size(chestwall_pos_max);
+            for ii=1:row
+                matrix_row(chestwall_pos_max(ii,1),1) = NaN;
+            end
+            matrix_row(isnan(matrix_row(:,1)),:) = [];
+            min_chestwall=min(matrix_row);
+            max_chestwall=max(matrix_row);
+        else
+            [row,~]=size(chestwall_pos_max);
+            for ii=1:row
+                matrix_row(chestwall_pos_max(ii,1),1) = NaN;
+            end
+            [row,~]=size(chestwall_pos_min);
+            for ii=1:row
+                matrix_row(chestwall_pos_min(ii,1),1) = NaN;
+            end
+            matrix_row(isnan(matrix_row(:,1)),:) = [];
+            min_chestwall=min(matrix_row);
+            max_chestwall=max(matrix_row);
+            
+        end
+        
+        motion_pixel_row=abs(max_chestwall-min_chestwall);
+        empt_motion_pixel_row=isempty(motion_pixel_row);
+        
+        if empt_motion_pixel_row==1
+            motion_pixel_row = NaN;
+            min_chestwall=NaN;
+            max_chestwall=NaN;
+            all_motion_pixel_row_breast(i,:)=motion_pixel_row;%vec
+            all_motion_min_breast_breast(i,:)=min_chestwall;%vec
+            all_motion_max_breast_breast(i,:)=max_chestwall;%vec
+        else
+            
+            all_motion_pixel_row_breast(i,:)=motion_pixel_row;%vec
+            all_motion_min_breast_breast(i,:)=min_chestwall;%vec
+            all_motion_max_breast_breast(i,:)=max_chestwall;%vec
+        end
+        
+    else
+        
+    end
+end
+
+all_motion_pixel_row(isnan(all_motion_pixel_row(:,1)),:) = [];
+mean_motion_pixel_SID=mean(all_motion_pixel_row);
+
+if empty_breast_pos == 0
+all_motion_pixel_row_breast(isnan(all_motion_pixel_row_breast(:,1)),:) = [];
+mean_motion_pixel_SID_breast=mean(all_motion_pixel_row_breast);
+end
+
+%% outliers are exlcuded %%
+%% create matrix when chestwall (primary) and breast tissue (secondary) is applied for analysis %%
+if scf==0  
+    first_number_chestw=matrix_chestwall_max_pos;
+    first_number_chestw(isnan(first_number_chestw))=0;
+    sum_first_number_chestw=sum(first_number_chestw);
+    length_first_number_chestw=length(sum_first_number_chestw);
+
+    first_number_breast=matrix_breast_pos;
+    first_number_breast(isnan(first_number_breast))=0;
+    sum_first_number_breast=sum(first_number_breast);
+    %length_first_number_breast=length(sum_first_number_breast); 
+    loop_count_chest=0;
+    loop_count_breast=0;
+    left_numb_col_chest=[];
+    left_numb_col_breast=[];
+    right_numb_col_chest=[];
+    right_numb_col_breast=[];
+    
+    for i=1:length_first_number_chestw % where is  col start from left to right
+        number_zero_chestw=sum_first_number_chestw(i);
+        if loop_count_chest==0
+            if number_zero_chestw>0
+               left_numb_col_chest=i;
+               loop_count_chest=loop_count_chest+1;
+            end
+        end
+        number_zero_breast=sum_first_number_breast(i);
+        if loop_count_breast==0
+            if number_zero_breast>0
+                left_numb_col_breast=i;
+                loop_count_breast=loop_count_breast+1;
+            end
+        end
+    end
+    
+    loop_count_chest=0;
+    loop_count_breast=0;
+    
+    for i=length_first_number_chestw:-1:1 % where is col start from right to left
+        number_zero_chestw=sum_first_number_chestw(i);
+        if loop_count_chest==0
+            if number_zero_chestw>0
+                right_numb_col_chest=i;
+                loop_count_chest=loop_count_chest+1;
+            end
+        end
+        number_zero_breast=sum_first_number_breast(i);
+        if loop_count_breast==0
+            if number_zero_breast>0
+                right_numb_col_breast=i;
+                loop_count_breast=loop_count_breast+1;
+            end
+        end
+    end
+
+    range_left=abs(left_numb_col_chest-left_numb_col_breast);
+    range_right=abs(right_numb_col_chest-right_numb_col_breast);
+    start_baseline_chest=[];
+    start_baseline_chest_right=[];
+    
+    if left_numb_col_chest<left_numb_col_breast
+       start_baseline=left_numb_col_chest; % 0 for chest
+       chest_or_breast_left=0;
+    elseif    left_numb_col_chest>left_numb_col_breast
+        start_baseline=left_numb_col_breast; % 1 for breast
+        start_baseline_chest=left_numb_col_chest;
+        chest_or_breast_left=1;
+    else
+        empty_left_numb_col_chest=isempty(left_numb_col_chest);
+        if empty_left_numb_col_chest==1
+        start_baseline=left_numb_col_breast; % 1 for breast
+        start_baseline_chest=left_numb_col_chest;
+        chest_or_breast_left=1;
+        else
+        start_baseline=left_numb_col_chest;
+        chest_or_breast_left=0;    
+        end 
+    end
+
+        
+    
+    if right_numb_col_chest>right_numb_col_breast
+       start_baseline_right=right_numb_col_chest; % 0 for chest
+       chest_or_breast_right=0;
+    elseif   right_numb_col_chest<right_numb_col_breast  
+        start_baseline_right=right_numb_col_breast; % 1 for breast
+        start_baseline_chest_right=right_numb_col_chest;
+        chest_or_breast_right=1;
+    else
+        empty_right_numb_col_chest=isempty(right_numb_col_chest);
+        if empty_right_numb_col_chest==1
+        start_baseline_right=right_numb_col_breast; % 1 for breast
+        start_baseline_chest_right=right_numb_col_chest;
+        chest_or_breast_right=1;  
+        else
+        start_baseline_right=right_numb_col_chest;
+        chest_or_breast_right=0;    
+        end   
+    end
+
+
+end
+%% find baseline frame (frame which is considered to be 0 mm shift) and substract all segmented frames to it to be able to assess intra-motion for chestwall & breast as well as scf chestwall %%
+% chest and scf 
+baseline_loop=0;
+each_frame_loop=0;
+[~,col]=size(matrix_chestwall_max_pos);
+length_matrix_col=[]; 
+
+if scf==1
+empty_all_motion_min_chestw=isempty(all_motion_min_chestw);
+empty_all_motion_max_chestw=isempty(all_motion_max_chestw);
+length_all_motion_min_chestw=length(all_motion_min_chestw);%min and max chestw always have same length
+row_1024=1024;
+    if empty_all_motion_min_chestw == 0
+        if empty_all_motion_max_chestw == 0
+            if length_all_motion_min_chestw < row_1024
+                all_motion_min_chestw(all_motion_min_chestw==0)=NaN;
+                all_motion_max_chestw(all_motion_max_chestw==0)=NaN;
+                all_motion_min_chestw(end:row_1024,:)=NaN;
+                all_motion_max_chestw(end:row_1024,:)=NaN;
+            end
+        end
+    end
+else
+empty_all_motion_min_chestw=isempty(all_motion_min_chestw);
+empty_all_motion_max_chestw=isempty(all_motion_max_chestw);
+length_all_motion_min_chestw=length(all_motion_min_chestw);%min and max chestw always have same length
+row_768=768;
+    if empty_all_motion_min_chestw == 0
+        if empty_all_motion_max_chestw == 0
+            if length_all_motion_min_chestw < row_768
+                all_motion_min_chestw(all_motion_min_chestw==0)=NaN;
+                all_motion_max_chestw(all_motion_max_chestw==0)=NaN;
+                all_motion_min_chestw(end:row_768,:)=NaN;
+                all_motion_max_chestw(end:row_768,:)=NaN;
+            end
+        end
+    end    
+end
+
+%150:250 range for scf analysis and 200:end for chestwall and breast tissue
+start_chest_breast=[];
+end_check_chest_breast=[];
+prev_value=[];
+num_loop=0;
+sum_each_frame_mean=[];
+for i=1:col % look at each col
+    if scf==1    
+    matrix_col=matrix_chestwall_max_pos(:,i); % first col supposedly baseline for all other col's 
+    res_min=matrix_col-all_motion_min_chestw;% vector
+    res_max=matrix_col-all_motion_max_chestw;% vector
+    res_min_ind=find(res_min<0); 
+    res_max_ind=find(res_max>0);    
+    matrix_col(res_min_ind,1)=NaN;  
+    matrix_col(res_max_ind,1)=NaN;
+    baseline_loop=baseline_loop+1;
+    length_col=matrix_col;
+    length_col(isnan(length_col))=[];
+    length_matrix_col=length(length_col);
+    else
+    % get if conditions in here
+        if chest_or_breast_left==0 % condition:  chest comes first in matrix and breast second as in mlc or jaw will cover breast first and then cover chest
+            if i>=start_baseline
+                if chest_or_breast_right==0
+                    if i<=start_baseline_right % when chest and breast have equal length. chest is primary, therefore chest takes over.
+                        matrix_col=matrix_chestwall_max_pos(:,i); % first col supposedly baseline for all other col's
+                        res_min=matrix_col-all_motion_min_chestw;% vector
+                        res_max=matrix_col-all_motion_max_chestw;% vector
+                        res_min_ind=find(res_min<0);
+                        res_max_ind=find(res_max>0);
+                        matrix_col(res_min_ind,1)=NaN;
+                        matrix_col(res_max_ind,1)=NaN;
+                        baseline_loop=baseline_loop+1;
+                        length_col=matrix_col;
+                        length_col(isnan(length_col))=[];
+                        length_matrix_col=length(length_col);
+                        start_chest_breast=0; % zero is chestw
+                    end
+                else
+                    if i<=start_baseline_chest_right   % tail of matrix, get data from chest until chest tail is reached.
+                        matrix_col=matrix_chestwall_max_pos(:,i); % first col supposedly baseline for all other col's
+                        res_min=matrix_col-all_motion_min_chestw;% vector
+                        res_max=matrix_col-all_motion_max_chestw;% vector
+                        res_min_ind=find(res_min<0);
+                        res_max_ind=find(res_max>0);
+                        matrix_col(res_min_ind,1)=NaN;
+                        matrix_col(res_max_ind,1)=NaN;
+                        baseline_loop=baseline_loop+1;
+                        length_col=matrix_col;
+                        length_col(isnan(length_col))=[];
+                        length_matrix_col=length(length_col);
+                        start_chest_breast=0; % zero is chestw
+                    else % breast secondary, when chest tail is reached get breast data until end of matrix
+                        matrix_col=matrix_breast_pos(:,i); % first col supposedly baseline for all other col's
+                        res_min=matrix_col-all_motion_min_breast_breast;% vector
+                        res_max=matrix_col-all_motion_max_breast_breast;% vector
+                        res_min_ind=find(res_min<0);
+                        res_max_ind=find(res_max>0);
+                        matrix_col(res_min_ind,1)=NaN;
+                        matrix_col(res_max_ind,1)=NaN;
+                        baseline_loop=baseline_loop+1;
+                        length_col=matrix_col;
+                        length_col(isnan(length_col))=[];
+                        length_matrix_col=length(length_col);
+                        start_chest_breast=1; % zero is chestw and 1 is breast
+                    end
+                end
+
+            end
+        else
+            
+            empty_start_baseline_chest=isempty(start_baseline_chest);
+            empty_start_baseline=isempty(start_baseline);
+            
+            if empty_start_baseline_chest==1 % maybe test that
+                start_baseline_chest=999999;
+            end
+            
+            if empty_start_baseline==1 % maybe test that
+                start_baseline=0;
+            end
+            
+            if i>=start_baseline && i<=start_baseline_chest% condition:  breast comes first in matrix and chest second as in mlc or jaw will cover chest first and then cover breast
+                matrix_col=matrix_breast_pos(:,i); % first col supposedly baseline for all other col's
+                res_min=matrix_col-all_motion_min_breast_breast;% vector
+                res_max=matrix_col-all_motion_max_breast_breast;% vector
+                res_min_ind=find(res_min<0);
+                res_max_ind=find(res_max>0);
+                matrix_col(res_min_ind,1)=NaN;
+                matrix_col(res_max_ind,1)=NaN;
+                baseline_loop=baseline_loop+1;
+                length_col=matrix_col;
+                length_col(isnan(length_col))=[];
+                length_matrix_col=length(length_col);
+                start_chest_breast=1; % zero is chestw and 1 is breast
+            elseif i>=start_baseline_chest
+                empty_chest_right=isempty(start_baseline_chest_right);   
+                if empty_chest_right==0
+                    if start_baseline_right>start_baseline_chest_right
+                        if i>start_baseline_chest_right % in case breast seg starts before chest seg and has more frames segmented as chestwall
+                            matrix_col=matrix_breast_pos(:,i); 
+                            res_min=matrix_col-all_motion_min_breast_breast;% vector
+                            res_max=matrix_col-all_motion_max_breast_breast;% vector
+                            res_min_ind=find(res_min<0);
+                            res_max_ind=find(res_max>0);
+                            matrix_col(res_min_ind,1)=NaN;
+                            matrix_col(res_max_ind,1)=NaN;
+                            baseline_loop=baseline_loop+1;
+                            length_col=matrix_col;
+                            length_col(isnan(length_col))=[];
+                            length_matrix_col=length(length_col);
+                            start_chest_breast=1; % zero is chestw and 1 is breast
+                            
+                        else
+                            matrix_col=matrix_chestwall_max_pos(:,i); % as soon as start of chest is reached, get chest data until end of matrix
+                            res_min=matrix_col-all_motion_min_chestw;% vector
+                            res_max=matrix_col-all_motion_max_chestw;% vector
+                            res_min_ind=find(res_min<0);
+                            res_max_ind=find(res_max>0);
+                            matrix_col(res_min_ind,1)=NaN;
+                            matrix_col(res_max_ind,1)=NaN;
+                            baseline_loop=baseline_loop+1;
+                            length_col=matrix_col;
+                            length_col(isnan(length_col))=[];
+                            length_matrix_col=length(length_col);
+                            start_chest_breast=0; % zero is chestw and 1 is breast  
+                        end
+                    else
+                        matrix_col=matrix_chestwall_max_pos(:,i); % as soon as start of chest is reached, get chest data until end of matrix
+                        res_min=matrix_col-all_motion_min_chestw;% vector
+                        res_max=matrix_col-all_motion_max_chestw;% vector
+                        res_min_ind=find(res_min<0);
+                        res_max_ind=find(res_max>0);
+                        matrix_col(res_min_ind,1)=NaN;
+                        matrix_col(res_max_ind,1)=NaN;
+                        baseline_loop=baseline_loop+1;
+                        length_col=matrix_col;
+                        length_col(isnan(length_col))=[];
+                        length_matrix_col=length(length_col);
+                        start_chest_breast=0; % zero is chestw and 1 is breast        
+                    end    
+                else
+                    matrix_col=matrix_chestwall_max_pos(:,i); % as soon as start of chest is reached, get chest data until end of matrix
+                    res_min=matrix_col-all_motion_min_chestw;% vector
+                    res_max=matrix_col-all_motion_max_chestw;% vector
+                    res_min_ind=find(res_min<0);
+                    res_max_ind=find(res_max>0);
+                    matrix_col(res_min_ind,1)=NaN;
+                    matrix_col(res_max_ind,1)=NaN;
+                    baseline_loop=baseline_loop+1;
+                    length_col=matrix_col;
+                    length_col(isnan(length_col))=[];
+                    length_matrix_col=length(length_col);
+                    start_chest_breast=0; % zero is chestw and 1 is breast
+                end
+                
+            end
+
+        end
+    end
+    
+    
+    if scf==1
+        if baseline_loop<9999
+            if length_matrix_col> min_length_data_scf % scf
+                matrix_chestwall_max_pos(:,i)=matrix_col;% changed col to i: matrix_chestwall_max_pos(:,col)=matrix_col;
+                baseline_frame_col=i;
+                baseline_loop=9999;
+            end
+        end
+    else
+        check_chest_breast=start_chest_breast;
+        if end_check_chest_breast==check_chest_breast % zero is chestw and 1 is breast
+         control_value=0; %just helps me to find when a change between breast and chestw occurs
+        else
+         control_value=1; % here indicating if its breast or chestw
+         baseline_loop=1;
+        end    
+            
+        if baseline_loop<9999 %made sure its bigger than 1024 pixels/rows/cols max field
+            if length_matrix_col> 250 % chestwall & breast tissue
+                if start_chest_breast==0
+                matrix_chestwall_max_pos(:,i)=matrix_col; % need to apply matrix breast or chestw
+                baseline_frame_col=i;
+                baseline_loop=9999;
+                else
+                matrix_breast_pos(:,i)=matrix_col; % need to apply matrix breast or chestw
+                baseline_frame_col=i;
+                baseline_loop=9999;
+  
+                end
+            end
+        end
+    end
+    
+    if baseline_loop>9999 % each frame can be now assessed compared to baseline
+        if scf==1
+            vec_each_frame_sub=matrix_chestwall_max_pos([1:end],baseline_frame_col)-matrix_col([1:end],1); %vector matrix_chestwall_max_pos([150:250],i
+            vec_each_frame_sub(isnan(vec_each_frame_sub))=[];
+            empty_vec_each_frame_sub=isempty(vec_each_frame_sub);
+            if empty_vec_each_frame_sub == 0
+                vec_each_frame_mean=mean(vec_each_frame_sub);
+            else
+                vec_each_frame_mean=NaN;
+            end
+            
+            each_frame_loop=each_frame_loop+1;
+            sum_each_frame_mean(each_frame_loop,:)=vec_each_frame_mean;
+            control_baseline_frame_col(each_frame_loop,:)=baseline_frame_col;
+
+        else
+            if start_chest_breast==0
+                vec_each_frame_sub=matrix_chestwall_max_pos([200:end],baseline_frame_col)-matrix_col([200:end],1); %vector matrix_chestwall_max_pos([200:end],i
+            else
+                vec_each_frame_sub=matrix_breast_pos([200:end],baseline_frame_col)-matrix_col([200:end],1); %vector matrix_breast_pos([200:end],i    
+            end
+                vec_each_frame_sub(isnan(vec_each_frame_sub))=[];
+                empty_vec_each_frame_sub=isempty(vec_each_frame_sub);
+            if empty_vec_each_frame_sub == 0
+                vec_each_frame_mean=mean(vec_each_frame_sub);
+            else
+                vec_each_frame_mean=NaN;
+            end
+                each_frame_loop=each_frame_loop+1;
+                control_baseline_frame_col(each_frame_loop,:)=baseline_frame_col;
+                length_cont_basel_frame=length(control_baseline_frame_col);           
+            if length_cont_basel_frame>1
+                prev_value=control_baseline_frame_col(each_frame_loop-1,:);               
+            end
+            
+            if length_cont_basel_frame>1
+                if prev_value==baseline_frame_col
+                    if num_loop<9999
+                        sum_each_frame_mean(i,:)=vec_each_frame_mean;
+                        num_loop=num_loop+1;
+                        save_number=vec_each_frame_mean;
+                    else
+                        nan_save_number=isnan(save_number);
+                        if nan_save_number==1
+                            save_number=0; 
+                        end
+                        prev_plus_actual=save_number+vec_each_frame_mean;
+                        sum_each_frame_mean(i,:)=prev_plus_actual;
+                        num_loop=num_loop+1;
+                        
+                    end
+                else
+                    num_loop=10000;
+                    nan_save_number=isnan(save_number);
+                    if nan_save_number==1
+                        save_number=0; 
+                    end
+                    prev_plus_actual=save_number+vec_each_frame_mean;
+                    sum_each_frame_mean(i,:)=prev_plus_actual;
+                end
+            else
+               sum_each_frame_mean(i,:)=vec_each_frame_mean;
+               save_number=vec_each_frame_mean;
+            end
+        end
+    end
+    if scf==0
+        end_check_chest_breast=check_chest_breast;
+    end
+end
+empty_sum_each_frame_mean=isempty(sum_each_frame_mean);
+if empty_sum_each_frame_mean==1
+    sum_each_frame=NaN;
+else    
+    sum_each_frame_mean(sum_each_frame_mean==0)=NaN; % get basline frame a zero by replacing NaN.
+    length_sum_each_frame_mean=length(sum_each_frame_mean);
+    for iii=1:length_sum_each_frame_mean
+        value_sum_frame_mean=sum_each_frame_mean(iii,1);
+        nan_value_sum_frame_mean=isnan(value_sum_frame_mean);
+        if nan_value_sum_frame_mean==0
+            if iii==1
+            break    
+            else    
+            sum_each_frame_mean(iii-1,1)=0;
+            end
+            break
+        end
+    end
+
+    for iii=length_sum_each_frame_mean:-1:1
+        value_sum_frame_mean=sum_each_frame_mean(iii,1);
+        nan_value_sum_frame_mean=isnan(value_sum_frame_mean);
+        if nan_value_sum_frame_mean==0
+            sum_each_frame_mean(iii:end,1)=value_sum_frame_mean;
+            break
+        end
+    end
+    length_sum_each_frame_mean=length(sum_each_frame_mean);
+    if length_sum_each_frame_mean<col
+    sum_each_frame=[0;sum_each_frame_mean]; % set first value zero.
+    last_value=sum_each_frame_mean(end);
+    sum_each_frame(end+1:col)=last_value;
+    else
+        
+        
+    %% sum_each_frame defines motion in pixel. starting with zero followed by shifts from each frame   
+    sum_each_frame=[0;sum_each_frame_mean]; % set first value zero.    
+    end
+     
+end
+
+
+%  empty_breast_pos=isempty(matrix_breast_pos); % get min max for breast and chestwall to exclude outliers
+%     if empty_breast_pos == 0
+%         
+%     end
+
+%% get panel projection corrected to iso, convert pixel to mm and interpolate shift data % 
+%% RI image data should be saved in "Analysis" folder
+% need to export daily MVimage.dcm from Aria into Analysis folder for each fraction or values are extracted to a to txt.file with a certain name such as SID_SAD.txt 
+%% prepare data 
+folder_name=strcat(analysis_path);
+folder=dir(folder_name);
+folder(1:2)=[];
+l_file=length(folder);
+
+for count_file=1:l_file
+                         
+    find_dcm=strfind(folder(count_file).name,'.dcm');
+    if find_dcm > 0
+       filename=folder(count_file).name;
+    end
+                   
+end
+file_path=strcat(analysis_path,'\',filename); % import mv imager .dcm into analysis folder
+filename_dicom = dicominfo(file_path);
+isoSAD=filename_dicom.RadiationMachineSAD;
+imagerSID=filename_dicom.RTImageSID;
+
+%% correct panel projection to isocenter %
+shift_iso=mean_motion_pixel_SID*(isoSAD/imagerSID);
+if empty_breast_pos == 0
+shift_iso_breast=mean_motion_pixel_SID_breast*(isoSAD/imagerSID);
+else
+shift_iso_breast=NaN;
+end
+shift_iso_each_frame=sum_each_frame*(isoSAD/imagerSID);
+%% convert pixel to mm %
+pixel_spacing=double(filename_dicom.ImagePlanePixelSpacing(1,1));
+
+shift_mm=pixel_spacing*shift_iso;% convert pixel to mm
+shift_mm_breast=pixel_spacing*shift_iso_breast;% convert pixel to mm
+shift_mm_each_frame=pixel_spacing*shift_iso_each_frame;
+
+%% Interpolate shift_mm_each_frame for a better looking plot %
+
+t = 1:length(shift_mm_each_frame);
+empty_sum_each_frame_mean=isempty(sum_each_frame_mean);
+nan_check=shift_mm_each_frame;
+nan_check(isnan(nan_check))=[];
+empty_nan_check=isempty(nan_check);
+length_nan_check=length(nan_check);
+if empty_sum_each_frame_mean==1
+   shift_mm_each_frame_int=NaN;
+elseif empty_nan_check==1
+    shift_mm_each_frame_int=NaN;
+elseif length_nan_check<2
+    shift_mm_each_frame_int=NaN; 
+else    
+    shift_mm_each_frame_int = interp1(t(~isnan(shift_mm_each_frame)),shift_mm_each_frame(~isnan(shift_mm_each_frame)),t);
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
