@@ -1,0 +1,108 @@
+% getting fit curve to substract background from Signal; get Min and Max, 45% difference between min and max or find own observer threshold
+function [signal_profile]=fit_curve(profile)
+ 
+        [~,col]=size(profile);
+        x = linspace(0,col,col);
+        y = profile;
+        p = polyfit(x,y,4);% Use polyfit to fit a 4th-degree polynomial to the points. 1. Value und letzter sollten bei y nicht NAN sein, ansonsten gibt es einen Fehler
+        x1 = linspace(1,col,col);
+        y1 = polyval(p,x1);
+        fehler=y-y1;
+        fehler_neg_position=find(fehler<0);
+        fehler_neg_log=fehler<0;
+        fehler_neg_value=fehler_neg_log.*fehler;
+        last_neg_digit=fehler_neg_value(end);
+        mean_fehler=mean(fehler_neg_value);
+        fehler_neg_value(fehler_neg_value>mean_fehler)=0;
+        fehler_neg_position=find(fehler_neg_value<0);
+        fehler_neg_log=fehler_neg_value;
+        fehler_neg_log(fehler_neg_log<0)=1;
+        background_values=y1+fehler_neg_value;
+        last_neg_digit=y1(end)+last_neg_digit;
+        background_values=background_values.*fehler_neg_log;
+        background_values(background_values==0)=[];
+        max_fehler_neg_position=max(fehler_neg_position);
+        min_fehler_neg_position=min(fehler_neg_position);
+
+        if max_fehler_neg_position<col
+
+            background_values(end+1)=last_neg_digit;
+            fehler_neg_position(end+1)=col;
+
+        end
+
+        if min_fehler_neg_position>1
+
+            background_values_storage=[background_values(1,1),background_values];
+            background_values=background_values_storage;
+            fehler_neg_position_1=[1,fehler_neg_position];
+            fehler_neg_position=fehler_neg_position_1;
+
+        end
+
+        % 1. option
+            Y=background_values; 
+            x=fehler_neg_position;
+            xi=1:col;
+            yi = interp1(x,Y,xi);
+            %figure;plot(xi,yi) 
+
+%         % 2. option
+%             DataInv = 1.01*max(yi) - yi; % find min values + position
+%             [~,MinIdx_peak] = findpeaks(DataInv);
+%             Min_peak = yi(MinIdx_peak);
+%             min_MinIdx_peak=min(MinIdx_peak);
+%             max_MinIdx_peak=max(MinIdx_peak);
+% 
+%             if min_MinIdx_peak>1 
+% 
+%                 Min_peaks=[Min_peak(1,1),Min_peak];
+%                 Min_peak=Min_peaks;
+%                 Min_peak_pos=[1,MinIdx_peak];
+%                 MinIdx_peak=Min_peak_pos;
+% 
+%             end
+% 
+%             if max_MinIdx_peak<col
+% 
+%                 Min_peak(end+1)=last_neg_digit;
+%                 MinIdx_peak(end+1)=col;
+% 
+%             end
+% 
+%             Y=Min_peak; 
+%             x=MinIdx_peak;
+%             xi=1:col;
+%             yii = interp1(x,Y,xi);
+%             %figure;plot(xi,yi) 
+
+        x = linspace(1,col,col);
+        y = yi;
+        p = polyfit(x,y,8); % 1. Value und letzter sollten bei y nicht NAN sein, ansonsten gibt es einen Fehler
+        x1 = linspace(1,col,col);
+        y1 = polyval(p,x1);
+
+
+%         x = linspace(1,col,col);
+%         y = yii;
+%         p = polyfit(x,y,8); 
+%         y2 = polyval(p,x1); 
+% 
+%         % 3. option
+%             y3=[y2;y1];
+%             mean_y12=mean(y3); % observer decision: option 3 will be used for the following analytics; 3. option is the mean of y1 and y2
+
+        % %figure
+        % figure;
+        % plot(x1,y2,'g')
+        % hold on
+        % plot(x1,y1,'c')
+        % plot(profile)
+        % plot(x1,mean_y12,'r')
+        % hold off
+        %signal_profile=profile-mean_y12; % only the Signal is now applied
+        signal_profile=profile-y1; % only the Signal is now applie           
+        signal_profile(signal_profile<0)=0;
+        %plot(signal_profile)
+        
+   
