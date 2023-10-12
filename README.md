@@ -9,7 +9,7 @@
 5) matlab_plot_all_data is to help plotting transformed data 1)-4). Some of them are listed in section "In Detail".6) 
 
 # In Detail
-# Commissioning report of auto chestwall segmentation on MV- cine images for breast deep inspiration breath-hold (DIBH) whole breast and supraclavicular fossa treatments
+## Commissioning report of auto chestwall segmentation on MV- cine images for breast deep inspiration breath-hold (DIBH) whole breast and supraclavicular fossa treatments
 
 
 ## Contents
