@@ -1,0 +1,112 @@
+%clear
+%close all
+%clc
+tic;
+%% load image set %%
+startupIALML
+%filename='P:\12 Staff\Felix\iTools_BraveHeart_measurement\Ooi_Grace_300817_DIBH_TS3\DIBH\CH0\20170830110542\Frame04890.hnd';%20170830110926\Frame07050.hnd';%20170830110926\Frame07026.hnd'; %20170830110926\Frame07082.hnd';%20170830110542\Frame04890.hnd';
+%filename='P:\12 Staff\Felix\iTools_BraveHeart_measurement\Levy_Anne_030817_DIBH_imaging_last3fields_1249996\20170803105037';
+% go through each folder
+%folder_name = uigetdir(pwd);% get folder (CH0,...) which containts folders of all images of treated fraction: CH0-field1,field2...-frame1, frame2...
+folder_name = pwd_file_path;
+mainfolder=dir(folder_name);
+mainfolder(1:2)=[]; % first two char files are without any modality information, can be deleted
+l_folder=length(mainfolder); % number of files in main folder
+
+for count_folder=1:l_folder
+   
+    name_of_mainfolder=mainfolder(count_folder).name;
+    % go through each file and create image
+    filename=strcat(folder_name,'\',name_of_mainfolder);
+    mainfile=dir(filename);
+    %mainfile(1:2)=[]; % first two char files are without any modality information, can be deleted
+    l_files=length(mainfile); % number of files in main folder
+    destinationfile=strcat(filename,'\','images'); % create destination folder, where sequence will be stored 
+    folder_available=mkdir(destinationfile);
+    foldercontent = dir(destinationfile); 
+    %find_thumb=strfind(foldercontent(3,1).name,'Thumbs'); % just want to make sure image folder is empty
+    find_thumb=0;
+    if find_thumb == 1
+        if numel(foldercontent) > 3
+        else     
+            for count_files=1:l_files
+                %fid = fopen(filename,'r');
+                name_of_mainfile=mainfile(count_files).name;
+                image_path=strcat(filename,'\',name_of_mainfile);
+                im = IALML.VMSImageHandler;
+                %result=isfile(image_path);
+                if  exist(image_path,'file')==7 % 7 is the indicator if the path contains a folder
+                else
+                    im.Read(image_path);
+                    data = double(im.Data);
+                    scf_value=0;
+                    data2=ICE(data,scf_value); % data2 Image enhancement
+                    image_delete=sum(sum(data2));
+                    if image_delete == 0
+                       delete(image_path);
+                       l_files=length(mainfile); % number of files in main folder
+                    else                      
+                       data_name=strcat('frame',num2str(count_files),'.jpg');
+                       data3 = uint8(255 * mat2gray(data));
+                       imwrite(data3,data_name);
+                       currentFolder = cd;
+                       data_name_path=strcat(currentFolder,'\','frame',num2str(count_files),'.jpg');
+                       statusmovefile=movefile(data_name_path,destinationfile);
+
+
+                    end
+
+                end
+            end
+        end
+    else 
+        if numel(foldercontent) > 2
+        else     
+            for count_files=1:l_files
+                %fid = fopen(filename,'r');
+                name_of_mainfile=mainfile(count_files).name;
+                image_path=strcat(filename,'\',name_of_mainfile);
+                im = IALML.VMSImageHandler;
+                %result=isfile(image_path);
+                if  exist(image_path,'file')==7 % 7 is the indicator if the path contains a folder
+                else
+                    im.Read(image_path);
+                    data = double(im.Data);
+                    scf_value=0;
+                    data2=ICE(data,scf_value); % data2 Image enhancement
+                    image_delete=sum(sum(data2));
+                    if image_delete == 0
+                       delete(image_path);
+                       l_files=length(mainfile); % number of files in main folder
+                    else
+                       data_name=strcat('frame',num2str(count_files),'.jpg');
+                       data3 = uint8(255 * mat2gray(data));
+                       imwrite(data3,data_name);
+                       currentFolder = cd;
+                       data_name_path=strcat(currentFolder,'\','frame',num2str(count_files),'.jpg');
+                       statusmovefile=movefile(data_name_path,destinationfile);
+
+
+                    end
+
+                end
+            end
+        end
+        
+        
+        
+    end
+  
+end
+
+% create analysis folder
+
+analysis_file=strcat(folder_name,'\','Analysis'); % create destination folder, where sequence will be stored 
+mkdir(analysis_file);
+
+
+
+%% time of process %%
+t=toc; % time is seconds
+t2=round(t);
+time=datestr(datenum(0,0,0,0,0,t2),'HH:MM:SS');% hours:minutes:seconds
